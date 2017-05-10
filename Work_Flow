@@ -1,0 +1,12 @@
+# coding: utf-8
+# date: 2017-05-04
+# Author:cyL
+
+Flag = True
+while Flag:
+    if confirm_button.ok:
+        # read the input(current_floor, cf and the destination floor, df) and add the data into the global destination list
+        log_info.append(spinbox1.text)
+        GDesList.append(spinbox2.text)
+        # call the schedule function to get the sheme, show the calling log and schedule info
+        schedule()

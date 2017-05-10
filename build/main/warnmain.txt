@@ -1,0 +1,19 @@
+missing module named PySide - imported by e:\programs\coding\lang\python35\lib\site-packages\PyInstaller\loader\rthooks\pyi_rth_qt4plugins.py
+missing module named resource - imported by posix, D:\coding\GUI\elevator\main.py
+missing module named posix - imported by os, D:\coding\GUI\elevator\main.py
+missing module named _posixsubprocess - imported by subprocess, D:\coding\GUI\elevator\main.py
+missing module named 'org.python' - imported by pickle, D:\coding\GUI\elevator\main.py, xml.sax
+missing module named ce - imported by os, D:\coding\GUI\elevator\main.py
+missing module named readline - imported by cmd, code, pdb, D:\coding\GUI\elevator\main.py
+excluded module named _frozen_importlib - imported by importlib, importlib.abc, D:\coding\GUI\elevator\main.py
+missing module named _frozen_importlib_external - imported by importlib._bootstrap, importlib, importlib.abc, D:\coding\GUI\elevator\main.py
+missing module named _winreg - imported by platform, D:\coding\GUI\elevator\main.py
+missing module named _scproxy - imported by urllib.request
+missing module named java - imported by platform, D:\coding\GUI\elevator\main.py
+missing module named 'java.lang' - imported by platform, D:\coding\GUI\elevator\main.py, xml.sax._exceptions
+missing module named vms_lib - imported by platform, D:\coding\GUI\elevator\main.py
+missing module named termios - imported by tty, D:\coding\GUI\elevator\main.py, getpass
+missing module named grp - imported by shutil, tarfile, D:\coding\GUI\elevator\main.py
+missing module named _dummy_threading - imported by dummy_threading, D:\coding\GUI\elevator\main.py
+missing module named pwd - imported by posixpath, shutil, tarfile, http.server, webbrowser, D:\coding\GUI\elevator\main.py, netrc, getpass
+missing module named org - imported by copy, D:\coding\GUI\elevator\main.py
