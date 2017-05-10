@@ -10,7 +10,7 @@
     <x>0</x>
     <y>0</y>
     <width>1255</width>
-    <height>926</height>
+    <height>925</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -23,7 +23,7 @@
       <x>90</x>
       <y>30</y>
       <width>100</width>
-      <height>550</height>
+      <height>600</height>
      </rect>
     </property>
     <property name="frameShape">
@@ -61,12 +61,36 @@
     <property name="midLineWidth">
      <number>0</number>
     </property>
-    <layout class="QVBoxLayout" name="verticalLayout_2"/>
+    <widget class="Line" name="B_bound">
+     <property name="enabled">
+      <bool>true</bool>
+     </property>
+     <property name="geometry">
+      <rect>
+       <x>0</x>
+       <y>380</y>
+       <width>80</width>
+       <height>16</height>
+      </rect>
+     </property>
+     <property name="cursor">
+      <cursorShape>ArrowCursor</cursorShape>
+     </property>
+     <property name="frameShadow">
+      <enum>QFrame::Sunken</enum>
+     </property>
+     <property name="lineWidth">
+      <number>1</number>
+     </property>
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+    </widget>
    </widget>
    <widget class="QFrame" name="frame_3">
     <property name="geometry">
      <rect>
-      <x>300</x>
+      <x>310</x>
       <y>30</y>
       <width>100</width>
       <height>601</height>
@@ -84,13 +108,31 @@
     <property name="midLineWidth">
      <number>0</number>
     </property>
-    <layout class="QVBoxLayout" name="verticalLayout_3"/>
+    <widget class="Line" name="C_bound">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>230</y>
+       <width>74</width>
+       <height>6</height>
+      </rect>
+     </property>
+     <property name="frameShadow">
+      <enum>QFrame::Sunken</enum>
+     </property>
+     <property name="lineWidth">
+      <number>1</number>
+     </property>
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+    </widget>
    </widget>
    <widget class="QFrame" name="frame_4">
     <property name="geometry">
      <rect>
       <x>430</x>
-      <y>30</y>
+      <y>60</y>
       <width>100</width>
       <height>591</height>
      </rect>
@@ -107,7 +149,22 @@
     <property name="midLineWidth">
      <number>0</number>
     </property>
-    <layout class="QVBoxLayout" name="verticalLayout_4"/>
+    <widget class="Line" name="D_bound">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>100</y>
+       <width>80</width>
+       <height>16</height>
+      </rect>
+     </property>
+     <property name="lineWidth">
+      <number>1</number>
+     </property>
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+    </widget>
    </widget>
    <widget class="QSplitter" name="splitter_10">
     <property name="geometry">
@@ -570,6 +627,9 @@
            <pointsize>25</pointsize>
           </font>
          </property>
+         <property name="cursor">
+          <cursorShape>IBeamCursor</cursorShape>
+         </property>
          <property name="minimum">
           <number>1</number>
          </property>
@@ -584,6 +644,9 @@
           <font>
            <pointsize>25</pointsize>
           </font>
+         </property>
+         <property name="cursor">
+          <cursorShape>IBeamCursor</cursorShape>
          </property>
          <property name="minimum">
           <number>1</number>

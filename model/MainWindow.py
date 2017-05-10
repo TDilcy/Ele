@@ -26,7 +26,7 @@ class MainWindow(RedefineUi):
         html_demo_pass_info = '    <table><tr>    <th>Record</th> <th>Floor</th> <th>Info</th>    </tr><tr>    <td>1</td>  <td>5</td>  <td>passager calls</td>   </tr></table>'
         self.ui.confirm_button.clicked.connect(lambda: self.ui.sch_info_broswer.setHtml(html_demo_sch_info))
         self.ui.confirm_button.clicked.connect(lambda: self.ui.pass_info_broswer.setHtml(html_demo_pass_info))
-        # self.ui.confirm_button.clicked.connect(self.demo_motion)
+        self.ui.confirm_button.clicked.connect(self.demo_motion)
 ####################################################################################
         # show the floor of the elevator
         self.elecars[0].thread.obj_signal.connect(self.showFloor)

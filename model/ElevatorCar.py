@@ -55,6 +55,6 @@ class EleMove(QtCore.QThread):
         self.direction = direction
 
     def run(self):
-        for i in range(800):
+        for i in range(1000):
             self.obj_signal.emit(self.ele)
             time.sleep(0.05)
