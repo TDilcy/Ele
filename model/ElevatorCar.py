@@ -13,9 +13,10 @@ class ElevatorCar(QtGui.QLabel):
     """
     # move_signal = QtCore.pyqtSignal(bool)
 
-    def __init__(self, order, location, parent=None, direction=None):
+    def __init__(self, order, location, parent=None, direction=None, ele_name=None):
         super(ElevatorCar, self).__init__(parent)
         self.order = order
+        self.ele_name = ele_name
         self.direction = direction
         self.location = location  # the location would be sorted as 4
         self.height = self.geometry().height()  # set the hight here to male it convenient to get in the moving function in redefineUI.py
@@ -23,7 +24,7 @@ class ElevatorCar(QtGui.QLabel):
         self.setFrameShape(QtGui.QFrame.Box)
         self.setFrameShadow(QtGui.QFrame.Sunken)
         # self.setText("EleBox %s" % str(self.order))
-        self.setText("+*" * self.order)
+        self.setText("*" * self.order)
         # self.setAlignment()
         self.setAlignment(QtCore.Qt.AlignCenter)
 
@@ -38,7 +39,14 @@ class ElevatorCar(QtGui.QLabel):
         self.thread.start()
 
     def moveStop(self):
+        self.direction = 'stop'
         self.thread.exit()
+
+    def getLocation(self):
+        '''
+        get the floor the elecar is in
+        '''
+        return self.geometry().y()
 
 
 class EleMove(QtCore.QThread):
@@ -55,6 +63,10 @@ class EleMove(QtCore.QThread):
         self.direction = direction
 
     def run(self):
-        for i in range(1000):
-            self.obj_signal.emit(self.ele)
-            time.sleep(0.05)
+        # stop the thread if direction is 'stop'
+        if self.direction == 'stop':
+            return
+        else:
+            for i in range(800):
+                self.obj_signal.emit(self.ele)
+                time.sleep(0.05)
