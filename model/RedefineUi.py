@@ -1,12 +1,14 @@
 # -*- utf-8 -*-
 from PyQt4 import QtGui
 from PyQt4.QtCore import QRect
+from PyQt4.QtCore import pyqtSignal
 # from model.ele import Ui_MainWindow
 # from model.ele_version5_3 import Ui_MainWindow
 from model.ele_version5_3_2 import Ui_MainWindow
 # from model.ele_3_27 import Ui_MainWindow
 # from model.ele_bak import Ui_MainWindow
 from model.ElevatorCar import ElevatorCar
+import time
 
 
 class RedefineUi(QtGui.QMainWindow):
@@ -18,7 +20,7 @@ class RedefineUi(QtGui.QMainWindow):
         self.ui.setupUi(self)
         self.ele_height = 15
         self.margin = 30
-        self.initFrame1(90, self.margin, 100, 600 + self.ele_height)
+        self._initFrame1(90, self.margin, 100, 600 + self.ele_height)
         self.WIDTH = self.ui.frame_1.geometry().width()
         self.HEIGHT = self.ui.frame_1.geometry().height()
         self.Y = self.ui.frame_1.geometry().y()
@@ -27,21 +29,21 @@ class RedefineUi(QtGui.QMainWindow):
         self.fr_num = 60  # the total floor of the building
         self.lcds = [self.ui.lcd1, self.ui.lcd2, self.ui.lcd3, self.ui.lcd4, self.ui.lcd5, self.ui.lcd6, self.ui.lcd7]
         # the value in self.movin_range represents the upper and lower bound of elecar
-        self.moving_range = {'U1': (self.Y, self.Y + (self.HEIGHT - self.ele_height) * 0.75),
-                             'U2': (self.Y, self.Y + (self.HEIGHT - self.ele_height) * 0.5),
-                             'U3': (self.Y, self.Y + (self.HEIGHT - self.ele_height) * 0.25),
-                             'L1': (self.Y, self.Y + (self.HEIGHT - self.ele_height)),
-                             'L2': (self.Y + (self.HEIGHT - self.ele_height) * 0.75, self.Y + (self.HEIGHT - self.ele_height)),
-                             'L3': (self.Y + (self.HEIGHT - self.ele_height) * 0.5, self.Y + (self.HEIGHT - self.ele_height)),
-                             'L4': (self.Y + (self.HEIGHT - self.ele_height) * 0.25, self.Y + (self.HEIGHT - self.ele_height))}
+        self.moving_range = {'B2': (self.Y, self.Y + (self.HEIGHT - self.ele_height) * 0.75),
+                             'C2': (self.Y, self.Y + (self.HEIGHT - self.ele_height) * 0.5),
+                             'D2': (self.Y, self.Y + (self.HEIGHT - self.ele_height) * 0.25),
+                             'A': (self.Y, self.Y + (self.HEIGHT - self.ele_height)),
+                             'B1': (self.Y + (self.HEIGHT - self.ele_height) * 0.75, self.Y + (self.HEIGHT - self.ele_height)),
+                             'C1': (self.Y + (self.HEIGHT - self.ele_height) * 0.5, self.Y + (self.HEIGHT - self.ele_height)),
+                             'D1': (self.Y + (self.HEIGHT - self.ele_height) * 0.25, self.Y + (self.HEIGHT - self.ele_height))}
 
-        self.setGeometry(500, 100, 600, 700)
-        self.initFrames()
-        self.init_splitters()
-        self.elecars, self.init_y_list = self.initEleCars()
+        self.setGeometry(500, 100, 1300, 750)
+        self._initFrames()
+        self._init_splitters()
+        self.elecars, self.init_y_list = self._initEleCars()
 
-        self.initLcds(self.init_y_list)
-        # self.initBounds()
+        self._initLcds(self.init_y_list)
+        self._initBounds()
         # self.initScrollArea(self.elecars)
 
     # def initScrollArea(self, elecars_to_add):
@@ -54,13 +56,13 @@ class RedefineUi(QtGui.QMainWindow):
     #     self.ui.scroll_area.setWidget(self.ui.frame_outer)  # add content in the scroll area
     #     self.ui.scroll_area.setAutoFillBackground(True)
     #     # self.layout = QtGui.QHBoxLayout(self.ui.widget_outer)
-    def initFrame1(self, fX, fY, fWidth, fHeight):
+    def _initFrame1(self, fX, fY, fWidth, fHeight):
         '''
         set the initial frame which is a standard one for others' position
         '''
         self.ui.frame_1.setGeometry(fX, fY, fWidth, fHeight)
 
-    def initFrames(self):
+    def _initFrames(self):
         self.ui.frame_2.setGeometry(self.frame_X(self.X, self.WIDTH, 2), self.Y,
                                     self.WIDTH, self.HEIGHT)
         self.ui.frame_3.setGeometry(self.frame_X(self.X, self.WIDTH, 3), self.Y,
@@ -71,7 +73,7 @@ class RedefineUi(QtGui.QMainWindow):
         # self.ui.frame_6.setGeometry(self.frame_X(6), self.Y, self.WIDTH, self.HEIGHT)
         # self.ui.frame_7.setGeometry(self.frame_X(7), self.Y, self.WIDTH, self.HEIGHT)
 
-    def init_splitters(self):
+    def _init_splitters(self):
         S_WIDTH = self.WIDTH * 0.8
         S_HEIGHT = S_WIDTH
         S_Y = self.Y + self.HEIGHT
@@ -106,78 +108,72 @@ class RedefineUi(QtGui.QMainWindow):
     def frame_X(X, width, n):
         return X + (n - 1) * width
 
-    def initEleCars(self):
+    def _initEleCars(self):
         '''
         initiate the ele_box in the gui, return a list contains all of them
         '''
         HEIGHT = self.ele_height
         WIDTH = self.ui.frame_1.width()
-        elecar1 = ElevatorCar(1, 'L1', self)
+        elecar1 = ElevatorCar(1, 'L1', self, ele_name='A')
         elecar1.setGeometry(self.ui.frame_1.geometry().x(),
-                            self.moving_range['L1'][1],
+                            self.moving_range['A'][1],
                             WIDTH, HEIGHT)
-        elecar2 = ElevatorCar(2, 'L2', self)
+        elecar2 = ElevatorCar(2, 'L2', self, ele_name='B1')
         elecar2.setGeometry(self.ui.frame_2.geometry().x(),
-                            self.moving_range['L2'][1],
+                            self.moving_range['B1'][1],
                             WIDTH, HEIGHT)
 
-        # elecar2 = ElevatorCar(2, 'L2', self)
-        # elecar2.setGeometry(self.ui.frame_2.geometry().x(),
-        #                     self.moving_range['U1'][1],
-        #                     WIDTH, HEIGHT)
-
-        elecar3 = ElevatorCar(3, 'L3', self)
+        elecar3 = ElevatorCar(3, 'L3', self, ele_name='C1')
         elecar3.setGeometry(self.ui.frame_3.geometry().x(),
-                            self.moving_range['L3'][1],
+                            self.moving_range['C1'][1],
                             WIDTH, HEIGHT)
 
 # #############temp###############################################
-        # elecar3 = ElevatorCar(3, 'L3', self)
+        # elecar3 = Ele, selfvatorCar(3, 'L3')
         # elecar3.setGeometry(10,
         #                     10,
         #                     WIDTH, HEIGHT)
 # #############temp###############################################
-        elecar4 = ElevatorCar(4, 'L4', self)
+        elecar4 = ElevatorCar(4, 'L4', self, ele_name='D1')
         elecar4.setGeometry(self.ui.frame_4.geometry().x(),
-                            self.moving_range['L4'][1],
+                            self.moving_range['D1'][1],
                             WIDTH, HEIGHT)
 
         # frame5,6,7 are no longer exist, and frame 2,3,4 are holding two
         # elecars each
-        elecar5 = ElevatorCar(5, 'U1', self)
+        elecar5 = ElevatorCar(5, 'U1', self, ele_name='B2')
         elecar5.setGeometry(self.ui.frame_2.geometry().x(),
-                            self.moving_range['U1'][1],
+                            self.moving_range['B2'][1],
                             WIDTH, HEIGHT)
-        elecar6 = ElevatorCar(6, 'U2', self)
+        elecar6 = ElevatorCar(6, 'U2', self, ele_name='C2')
         elecar6.setGeometry(self.ui.frame_3.geometry().x(),
-                            self.moving_range['U2'][1],
+                            self.moving_range['C2'][1],
                             WIDTH, HEIGHT)
-        elecar7 = ElevatorCar(7, 'U3', self)
+        elecar7 = ElevatorCar(7, 'U3', self, ele_name='D2')
         elecar7.setGeometry(self.ui.frame_4.geometry().x(),
-                            self.moving_range['U3'][1],
+                            self.moving_range['D2'][1],
                             WIDTH, HEIGHT)
         elecars = [elecar1, elecar2, elecar3, elecar4, elecar5, elecar6, elecar7]
         # this y_list is for move function
         init_y_list = [ele.geometry().y() for ele in elecars]
         return elecars, init_y_list
 
-    def initLcds(self, y_list):
+    def _initLcds(self, y_list):
         '''
         show the init_floor the elecar locates
         y_list stores the y_position of the elecars
         '''
         for ind, lcd in enumerate(self.lcds):
-            lcd.display(self.calculateFloor(self.fr_num, self.HEIGHT - self.ele_height, y_list[ind]))
+            lcd.display(self._calculateFloor(self.fr_num, self.HEIGHT - self.ele_height, y_list[ind]))
 
-    def initBounds(self):
+    def _initBounds(self):
         # the y_loc of B_bound is a relative distance not the absolute one
-        self.ui.B_bound.setGeometry(0, 10,
+        self.ui.B_bound.setGeometry(0, (self.HEIGHT - self.ele_height) * 0.75,
                                     self.WIDTH, 2)
         self.ui.C_bound.setGeometry(0, (self.HEIGHT - self.ele_height) * 0.5,
                                     self.WIDTH, 2)
         self.ui.D_bound.setGeometry(0, (self.HEIGHT - self.ele_height) * 0.25,
                                     self.WIDTH, 2)
-        pass
 
     def up(self, order):
         self.elecars[order].moveUp()
@@ -187,9 +183,9 @@ class RedefineUi(QtGui.QMainWindow):
         self.elecars[order].moveDown()
         self.elecars[order].thread.obj_signal.connect(self.move)
 
-    # def stop(self, order):
-    #     self.elecars[order].moveStop()
-    #     self.elecars[order].thread.obj_signal.connect(self.move)
+    def stop(self, order):
+        self.elecars[order].moveStop()
+        self.elecars[order].thread.obj_signal.connect(self.move)
 
     def move(self, ele):
         '''
@@ -199,12 +195,14 @@ class RedefineUi(QtGui.QMainWindow):
         x = ele.geometry().x()
         y = ele.geometry().y()
         # set the moving range for the upper elecars and the lowwer elecars
-        top_margin = self.moving_range[ele.location][0]
-        buttom_margin = self.moving_range[ele.location][1]
+        top_margin = self.moving_range[ele.ele_name][0]
+        buttom_margin = self.moving_range[ele.ele_name][1]
         if ele.direction == "up":
             step = -2
         elif ele.direction == "down":
             step = 2
+        else:
+            return
         y += step
         QtGui.QApplication.processEvents()
         while (y <= buttom_margin) & (y >= top_margin):
@@ -215,33 +213,99 @@ class RedefineUi(QtGui.QMainWindow):
         '''
         show which flow does the elecar locate in the correspondant lcd
         '''
-        y = ele.geometry().y() #  + ele.height  # add ele.height to avoid lcd displaying 0 when arrive at the top floor'
+        y = ele.geometry().y()  # + ele.height  # add ele.height to avoid lcd displaying 0 when arrive at the top floor'
         # top_margin = 50
         lcd_selected = self.lcds[self.elecars.index(ele)]
         # calculate the floor
-        lcd_selected.display(self.calculateFloor(self.fr_num, self.HEIGHT - self.ele_height, y))
+        lcd_selected.display(self._calculateFloor(self.fr_num, self.HEIGHT - self.ele_height, y))
 
-    def demo_motion(self):
+    # def signal2Floor(self, ele):
+    #     y_loc = ele.geometry().y()
+    #     return self._calculateFloor(self.fr_num, self.HEIGHT - self.ele_height, y_loc)
+
+    def getEleFloor(self, name):
         '''
-        show which flow does the elecar locate in the correspondant lcd
+        obtain the current floor of each ele
         '''
-        import time
-        self.up(0)
-        self.up(1)
-        self.up(2)
+        y_loc = [i for i in self.elecars if i.ele_name == name][0].geometry().y()
+        floor = self._calculateFloor(self.fr_num, self.HEIGHT - self.ele_height, y_loc)
+        print(floor)
+        return floor
+
+
+    def _moveToOne(self, name, target):
+        '''
+        to one place
+        :param name:
+        :param target:
+        :return:
+        '''
+        ele = [i for i in self.elecars if i.ele_name == name][0]
+        cur_floor = self.getEleFloor(name)
+        if cur_floor < target:
+            while cur_floor < target:
+                self.up(ele.order)
+                time.sleep(0.05)
+                cur_floor = self.getEleFloor(name)
+            self.stop(ele.order)
+        elif cur_floor > target:
+            while cur_floor > target:
+                self.down(ele.order)
+                time.sleep(0.05)
+                cur_floor = self.getEleFloor(ele)
+            self.stop(ele.order)
+        else:
+            pass
+
+    def _entireMove(self, name, src, des):
+        '''
+        a whole movement to a given destination floor, first move to the floor where the passenger is, and then the destination floor
+        :param des, ele
+        :return: the elecar aminaiton
+        '''
+        # first step: to src
+        self._moveToOne(name, src)
+        # second step: to des
+        self._moveToOne(name, des)
+
+
+    def executeRoute(self, route):
+        '''
+        execute the route given, simulate the movement of elecars
+        :param route:a list containing which ele you should take and in which floor you should change ele
+        :return: execute the whole route
+        '''
+        if len(route) == 3:
+            src = route[0]
+            picked_ele = route[1]
+            des = route[2]
+            ele = picked_ele #[i for i in self.elecars if i.ele_name == picked_ele][0]  # fetch the ele using the given name
+            self._entireMove(ele, src, des)
+        elif len(route) == 6:
+            src = route[0]
+            picked_ele1 = route[1]
+            temp = route[2]
+            picked_ele2 = route[3]
+            des = route[4]
+            ele1 = picked_ele1 #[i for i in self.elecars if i.ele_name == picked_ele1][0]  # fetch the ele using the given name
+            ele2 = picked_ele2 #[i for i in self.elecars if i.ele_name == picked_ele2][0]  # fetch the ele using the given name
+            self._entireMove(ele1, src, temp)
+            self._entireMove(ele2, temp, des)
+        else:
+            pass
+
+
+    def demoMotion(self):
         self.up(3)
-        # self.up(4)
-        # self.up(5)
-        # self.up(6)
-        # time.sleep(2)
-        # self.down(2)
-        # time.sleep(4)
-        # self.up(2)
-        # pass
+        self.down(5)
+        self.up(6)
+        self.down(4)
+
+
 
     # @staticmethod
-    def calculateFloor(self, fr_num, f_height, loc_y):
-        # the simple way, just one line
+    def _calculateFloor(self, fr_num, f_height, loc_y):
+        # the simple way, just one line, not work now!
         # return sum(map(lambda j: (fr_num - j) if (50 + f_height / fr_num * j) <= loc_y < (50 + f_height / fr_num * (j + 1)) else 0, range(fr_num)))
 
         # a more concrete way；
@@ -250,8 +314,6 @@ class RedefineUi(QtGui.QMainWindow):
                 # make sure the 1st floor displayed properly
                 L = self.margin + f_height / fr_num * (fr_num - i + 1) + 1
             U = self.margin + f_height / fr_num * (fr_num - (i + 1) + 1)
-            # print(L)
-            # print(U)
             if U <= loc_y < L:
                 return i
             # else:

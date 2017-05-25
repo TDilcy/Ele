@@ -9,8 +9,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1255</width>
-    <height>925</height>
+    <width>1536</width>
+    <height>932</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -187,17 +187,17 @@
      <rect>
       <x>940</x>
       <y>90</y>
-      <width>61</width>
+      <width>71</width>
       <height>41</height>
      </rect>
     </property>
     <property name="font">
      <font>
-      <pointsize>16</pointsize>
+      <pointsize>12</pointsize>
      </font>
     </property>
     <property name="text">
-     <string>确定</string>
+     <string>confirm</string>
     </property>
    </widget>
    <widget class="QSplitter" name="splitter_3">
@@ -594,7 +594,7 @@
           </font>
          </property>
          <property name="text">
-          <string>所在楼层</string>
+          <string>src</string>
          </property>
          <property name="alignment">
           <set>Qt::AlignCenter</set>
@@ -609,7 +609,7 @@
           </font>
          </property>
          <property name="text">
-          <string>目的楼层</string>
+          <string>des</string>
          </property>
          <property name="alignment">
           <set>Qt::AlignCenter</set>
@@ -621,7 +621,7 @@
      <item>
       <layout class="QHBoxLayout" name="horizontalLayout_2">
        <item>
-        <widget class="QSpinBox" name="cur_floor_box">
+        <widget class="QSpinBox" name="src_floor_box">
          <property name="font">
           <font>
            <pointsize>25</pointsize>
@@ -663,10 +663,10 @@
    <widget class="QSplitter" name="splitter">
     <property name="geometry">
      <rect>
-      <x>650</x>
+      <x>660</x>
       <y>150</y>
       <width>541</width>
-      <height>571</height>
+      <height>351</height>
      </rect>
     </property>
     <property name="orientation">
@@ -688,7 +688,7 @@
          </font>
         </property>
         <property name="text">
-         <string>乘客信息</string>
+         <string>passenger info</string>
         </property>
         <property name="alignment">
          <set>Qt::AlignCenter</set>
@@ -723,7 +723,7 @@ p, li { white-space: pre-wrap; }
          </font>
         </property>
         <property name="text">
-         <string>调度信息</string>
+         <string>schedule info</string>
         </property>
         <property name="alignment">
          <set>Qt::AlignCenter</set>
@@ -749,6 +749,91 @@ p, li { white-space: pre-wrap; }
      </layout>
     </widget>
    </widget>
+   <widget class="QWidget" name="layoutWidget">
+    <property name="geometry">
+     <rect>
+      <x>660</x>
+      <y>500</y>
+      <width>541</width>
+      <height>211</height>
+     </rect>
+    </property>
+    <layout class="QVBoxLayout" name="verticalLayout_2">
+     <item>
+      <widget class="QLabel" name="label_12">
+       <property name="font">
+        <font>
+         <pointsize>15</pointsize>
+        </font>
+       </property>
+       <property name="text">
+        <string>change info</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QTextBrowser" name="chg_info_broswer">
+       <property name="font">
+        <font>
+         <pointsize>12</pointsize>
+        </font>
+       </property>
+       <property name="html">
+        <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'SimSun'; font-size:12pt; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </widget>
+   <widget class="QWidget" name="layoutWidget">
+    <property name="geometry">
+     <rect>
+      <x>560</x>
+      <y>230</y>
+      <width>81</width>
+      <height>121</height>
+     </rect>
+    </property>
+    <layout class="QVBoxLayout" name="verticalLayout_3">
+     <item>
+      <widget class="QPushButton" name="clear_button">
+       <property name="text">
+        <string>Reset</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="shuffle_button">
+       <property name="text">
+        <string>Shuffle</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="run_button">
+       <property name="text">
+        <string>Run</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="stop_button">
+       <property name="text">
+        <string>Stop</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </widget>
+   <zorder>layoutWidget</zorder>
+   <zorder>layoutWidget</zorder>
    <zorder>splitter_3</zorder>
    <zorder>splitter_4</zorder>
    <zorder>splitter_2</zorder>
@@ -767,7 +852,7 @@ p, li { white-space: pre-wrap; }
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1255</width>
+     <width>1536</width>
      <height>23</height>
     </rect>
    </property>

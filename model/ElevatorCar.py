@@ -11,7 +11,6 @@ class ElevatorCar(QtGui.QLabel):
     """
     elevatorcar inherited from the Qlabel and add a method to move up and down
     """
-    # move_signal = QtCore.pyqtSignal(bool)
 
     def __init__(self, order, location, parent=None, direction=None, ele_name=None):
         super(ElevatorCar, self).__init__(parent)
@@ -46,9 +45,26 @@ class ElevatorCar(QtGui.QLabel):
         '''
         get the floor the elecar is in
         '''
-        return self.geometry().y()
+        fr_num = 60
+        f_height = 600
+        y_loc = self.geometry().y()
+        return  self._calculateFloor(fr_num, f_height, y_loc)
 
+    def _calculateFloor(self, fr_num, f_height, loc_y):
+        # ############### this method should changed cause it is too dependent with other variables############
+        # the simple way, just one line
+        # return sum(map(lambda j: (fr_num - j) if (50 + f_height / fr_num * j) <= loc_y < (50 + f_height / fr_num * (j + 1)) else 0, range(fr_num)))
 
+        # a more concrete way；
+        for i in range(1, fr_num + 1):
+            if i == 1:
+                # make sure the 1st floor displayed properly
+                L = 30 + f_height / fr_num * (fr_num - i + 1) + 1
+            U = 30 + f_height / fr_num * (fr_num - (i + 1) + 1)
+            # print(L)
+            # print(U)
+            if U <= loc_y < L:
+                return i
 class EleMove(QtCore.QThread):
     '''
     changelog:
