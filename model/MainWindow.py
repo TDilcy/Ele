@@ -36,6 +36,7 @@ class MainWindow(RedefineUi):
         self.ui.confirm_button.clicked.connect(self.showChgText)
         # start the amitation
         self.ui.confirm_button.clicked.connect(lambda: self.executeRoute(self.route))
+        # self.ui.confirm_button.clicked.connect(self.demoMotion)
 ##########################################################################
         # show the floor of the elevator
         self.elecars[0].thread.obj_signal.connect(self.showFloor)

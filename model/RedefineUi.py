@@ -175,19 +175,22 @@ class RedefineUi(QtGui.QMainWindow):
         self.ui.D_bound.setGeometry(0, (self.HEIGHT - self.ele_height) * 0.25,
                                     self.WIDTH, 2)
 
-    def up(self, order):
-        self.elecars[order].moveUp()
-        self.elecars[order].thread.obj_signal.connect(self.move)
+    def up(self, order, top):
+        ele = self.elecars[order - 1]
+        ele.moveUp()
+        ele.thread.obj_signal.connect(lambda: self.move(ele, top_margin=top))
 
-    def down(self, order):
-        self.elecars[order].moveDown()
-        self.elecars[order].thread.obj_signal.connect(self.move)
+    def down(self, order, buttom):
+        ele = self.elecars[order - 1]
+        ele.moveDown()
+        ele.thread.obj_signal.connect(lambda: self.move(ele, buttom_margin=buttom))
 
     def stop(self, order):
-        self.elecars[order].moveStop()
-        self.elecars[order].thread.obj_signal.connect(self.move)
+        ele = self.elecars[order - 1]
+        ele.moveStop()
+        ele.thread.obj_signal.connect(lambda: self.move(ele))
 
-    def move(self, ele):
+    def move(self, ele, top_margin = None, buttom_margin = None):
         '''
         important issue: the refresh operation should be put at the main thread rather than the sub-thread, otherwise, it will crash.
         '''
@@ -195,8 +198,10 @@ class RedefineUi(QtGui.QMainWindow):
         x = ele.geometry().x()
         y = ele.geometry().y()
         # set the moving range for the upper elecars and the lowwer elecars
-        top_margin = self.moving_range[ele.ele_name][0]
-        buttom_margin = self.moving_range[ele.ele_name][1]
+        if top_margin is None:
+            top_margin = self.moving_range[ele.ele_name][0]
+        if buttom_margin is None:
+            buttom_margin = self.moving_range[ele.ele_name][1]
         if ele.direction == "up":
             step = -2
         elif ele.direction == "down":
@@ -205,9 +210,10 @@ class RedefineUi(QtGui.QMainWindow):
             return
         y += step
         QtGui.QApplication.processEvents()
-        while (y <= buttom_margin) & (y >= top_margin):
-            ele.move(x, y)
-            break
+        # while (y <= buttom_margin) & (y >= top_margin):
+        if (y <= buttom_margin) & (y >= top_margin):
+            ele.new_move(x, y)
+            # break
 
     def showFloor(self, ele):
         '''
@@ -227,10 +233,20 @@ class RedefineUi(QtGui.QMainWindow):
         '''
         obtain the current floor of each ele
         '''
-        y_loc = [i for i in self.elecars if i.ele_name == name][0].geometry().y()
-        floor = self._calculateFloor(self.fr_num, self.HEIGHT - self.ele_height, y_loc)
-        print(floor)
+        # print(name)
+        ele_list = [i for i in self.elecars if i.ele_name == name]
+        if len(ele_list) != 0:
+            y_loc = ele_list[0].geometry().y()
+            floor = self._calculateFloor(self.fr_num, self.HEIGHT - self.ele_height, y_loc)
+            # print(floor)
+        else:
+            floor = 999
         return floor
+
+
+    def _y2floor(self, y):
+        return self._calculateFloor(self.fr_num, )
+        pass
 
 
     def _moveToOne(self, name, target):
@@ -239,23 +255,18 @@ class RedefineUi(QtGui.QMainWindow):
         :param name:
         :param target:
         :return:
+        check the floor of the ele, if it reaches at the destination required, then stop
         '''
         ele = [i for i in self.elecars if i.ele_name == name][0]
-        cur_floor = self.getEleFloor(name)
+        ele.y_loc_signal.connect(self.oneWay())
+
+        cur_floor = self._y2floor()
         if cur_floor < target:
-            while cur_floor < target:
-                self.up(ele.order)
-                time.sleep(0.05)
-                cur_floor = self.getEleFloor(name)
-            self.stop(ele.order)
-        elif cur_floor > target:
-            while cur_floor > target:
-                self.down(ele.order)
-                time.sleep(0.05)
-                cur_floor = self.getEleFloor(ele)
-            self.stop(ele.order)
-        else:
-            pass
+            self.up(ele.order, 400)
+
+        if cur_floor > target:
+            self.down(ele.order, 550)
+
 
     def _entireMove(self, name, src, des):
         '''
@@ -275,6 +286,7 @@ class RedefineUi(QtGui.QMainWindow):
         :param route:a list containing which ele you should take and in which floor you should change ele
         :return: execute the whole route
         '''
+        route = [2, 'D1', 10] # just for debugging
         if len(route) == 3:
             src = route[0]
             picked_ele = route[1]
@@ -296,10 +308,10 @@ class RedefineUi(QtGui.QMainWindow):
 
 
     def demoMotion(self):
-        self.up(3)
-        self.down(5)
-        self.up(6)
-        self.down(4)
+        self.up(3, 300)
+        self.down(5, 500)
+        # self.up(6)
+        # self.down(4)
 
 
 

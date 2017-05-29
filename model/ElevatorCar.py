@@ -11,7 +11,7 @@ class ElevatorCar(QtGui.QLabel):
     """
     elevatorcar inherited from the Qlabel and add a method to move up and down
     """
-
+    y_loc_signal = pyqtSignal(int)
     def __init__(self, order, location, parent=None, direction=None, ele_name=None):
         super(ElevatorCar, self).__init__(parent)
         self.order = order
@@ -50,6 +50,19 @@ class ElevatorCar(QtGui.QLabel):
         y_loc = self.geometry().y()
         return  self._calculateFloor(fr_num, f_height, y_loc)
 
+    def new_move(self, x, y):
+        '''
+        rewrite the method to emit the y_loc_signal when moving
+        '''
+        self.move(x, y)
+        self.y_loc_signal.emit(self.geometry().y())
+
+    def y_loc(self):
+        y_loc = self.geometry().y()
+        self.y_loc_signal.emit(y_loc)
+
+
+
     def _calculateFloor(self, fr_num, f_height, loc_y):
         # ############### this method should changed cause it is too dependent with other variables############
         # the simple way, just one line
@@ -83,6 +96,7 @@ class EleMove(QtCore.QThread):
         if self.direction == 'stop':
             return
         else:
-            for i in range(800):
+            # self.obj_signal.emit(self.ele)
+            for i in range(100):
                 self.obj_signal.emit(self.ele)
                 time.sleep(0.05)
