@@ -197,7 +197,7 @@
      </font>
     </property>
     <property name="text">
-     <string>confirm</string>
+     <string>确认</string>
     </property>
    </widget>
    <widget class="QSplitter" name="splitter_3">
@@ -594,7 +594,7 @@
           </font>
          </property>
          <property name="text">
-          <string>src</string>
+          <string>呼梯楼层</string>
          </property>
          <property name="alignment">
           <set>Qt::AlignCenter</set>
@@ -609,7 +609,7 @@
           </font>
          </property>
          <property name="text">
-          <string>des</string>
+          <string>目的楼层</string>
          </property>
          <property name="alignment">
           <set>Qt::AlignCenter</set>
@@ -688,7 +688,7 @@
          </font>
         </property>
         <property name="text">
-         <string>passenger info</string>
+         <string>乘客信息</string>
         </property>
         <property name="alignment">
          <set>Qt::AlignCenter</set>
@@ -723,7 +723,7 @@ p, li { white-space: pre-wrap; }
          </font>
         </property>
         <property name="text">
-         <string>schedule info</string>
+         <string>调度信息</string>
         </property>
         <property name="alignment">
          <set>Qt::AlignCenter</set>
@@ -767,7 +767,7 @@ p, li { white-space: pre-wrap; }
         </font>
        </property>
        <property name="text">
-        <string>change info</string>
+        <string>换乘信息</string>
        </property>
        <property name="alignment">
         <set>Qt::AlignCenter</set>

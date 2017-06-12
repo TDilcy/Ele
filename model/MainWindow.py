@@ -22,7 +22,7 @@ class MainWindow(RedefineUi):
         # fetch the input and show the info in the textbroswer
         self.ui.confirm_button.clicked.connect(self._getSrcDes)
         self.ui.confirm_button.clicked.connect(lambda: self._setPassText(
-            len(self.src), self.src[-1], 'passager calls'))
+            len(self.src), self.src[-1], '乘客呼梯'))
         self.ui.confirm_button.clicked.connect(
             lambda: self.ui.pass_info_broswer.setHtml(self.pass_info))
 
@@ -37,22 +37,22 @@ class MainWindow(RedefineUi):
         # start the amitation
         self.ui.confirm_button.clicked.connect(lambda: self.executeRoute(self.route))
         # self.ui.confirm_button.clicked.connect(self.demoMotion)
-##########################################################################
+########################        ##################################################
         # show the floor of the elevator
-        self.elecars[0].thread.obj_signal.connect(self.showFloor)
-        self.elecars[1].thread.obj_signal.connect(self.showFloor)
-        self.elecars[2].thread.obj_signal.connect(self.showFloor)
-        self.elecars[3].thread.obj_signal.connect(self.showFloor)
-        self.elecars[4].thread.obj_signal.connect(self.showFloor)
-        self.elecars[5].thread.obj_signal.connect(self.showFloor)
-        self.elecars[6].thread.obj_signal.connect(self.showFloor)
-
+        self.elecars[0].obj_signal.connect(self.showFloor)
+        self.elecars[1].obj_signal.connect(self.showFloor)
+        self.elecars[2].obj_signal.connect(self.showFloor)
+        self.elecars[3].obj_signal.connect(self.showFloor)
+        self.elecars[4].obj_signal.connect(self.showFloor)
+        self.elecars[5].obj_signal.connect(self.showFloor)
+        self.elecars[6].obj_signal.connect(self.showFloor)
 
         # clear the des and route just for testing
         self.ui.clear_button.clicked.connect(self.clear)
         self.ui.shuffle_button.clicked.connect(self.shuffle)
 
         self.ui.run_button.clicked.connect(self.demoMotion)
+        # self.ui.run_button.clicked.connect(self.test_y_locs)
         self.ui.stop_button.clicked.connect(lambda: self.getEleFloor(3))
 
 
@@ -68,7 +68,9 @@ class MainWindow(RedefineUi):
     def _setPassText(self, record, src, info):
         self.base_passager_info += '<tr>    <td>{rec}</td>  <td>{src}</td>  <td>{info_kind}</td>   </tr>'.format(
             rec=record, src=src, info_kind=info)
-        self.pass_info = '<table><tr>    <th>Record</th> <th>Floor</th> <th>Info</th>    </tr>{show_info}</table>'.format(
+        # self.pass_info = '<table><tr>    <th>Record</th> <th>Floor</th> <th>Info</th>    </tr>{show_info}</table>'.format(
+        #     show_info=self.base_passager_info)
+        self.pass_info = '<table><tr>    <th>记录</th> <th>楼层</th> <th>信息</th>    </tr>{show_info}</table>'.format(
             show_info=self.base_passager_info)
 
     def _setSchText(self, record, src, des, route_info):
@@ -76,10 +78,12 @@ class MainWindow(RedefineUi):
         two condition are considered: with or without elevator exchanged
         '''
         if len(route_info) == 3:
-            self.base_sch_info += '<tr>    <td>{rec}</td>  <td>{src}</td>  <td>{des}</td>  <td><b>{r1}</b>(<font color="#009933">{r2}</font>)</td>    </tr>'.format(rec=record, src=src, des=des, r1=route_info[0], r2=route_info[1])
+            self.base_sch_info += '<tr>    <td>{rec}</td>  <td>{src}</td>  <td>{des}</td>  <td><b>{r1}</b>(<font color="#009933">{r2}</font>)</td>    </tr>'.format(rec=record, src=src, des=des, r1=route_info[-1], r2=route_info[1])
         elif len(route_info) == 6:
-            self.base_sch_info += '<tr>    <td>{rec}</td>  <td>{src}</td>  <td>{des}</td>  <td><b>{r1}</b>(<font color="#009933">{r2}</font>)——><b>{r3}</b>(<font color="#009933">{r4}</font>)</td>    </tr>'.format(rec=record, src=src, des=des, r1=route_info[0], r2=route_info[1], r3=route_info[2], r4=route_info[3])
-        self.sch_info = '<table><tr><th>Record</th>   <th>src</th>    <th>des</th>    <th>Route</th></tr>{show_info}</table>'.format(
+            self.base_sch_info += '<tr>    <td>{rec}</td>  <td>{src}</td>  <td>{des}</td>  <td><b>{r1}</b>(<font color="#009933">{r2}</font>)——><b>{r3}</b>(<font color="#009933">{r4}</font>)</td>    </tr>'.format(rec=record, src=src, des=des, r1=route_info[2], r2=route_info[1], r3=route_info[4], r4=route_info[3])
+        # self.sch_info = '<table><tr><th>Record</th>   <th>src</th>    <th>des</th>    <th>Route</th></tr>{show_info}</table>'.format(
+        #     show_info=self.base_sch_info)
+        self.sch_info = '<table><tr><th>记录</th>   <th>当前楼层</th>    <th>目的楼层</th>    <th>线路</th></tr>{show_info}</table>'.format(
             show_info=self.base_sch_info)
 
     def showChgText(self):
@@ -105,14 +109,13 @@ class MainWindow(RedefineUi):
     def shuffle(self):
         '''
         generate a random position for each elecar and update the corresponding lcd
-        # TODO: transform the result randomly generated into the floor num rather than just the y_loc
+        # TODO: ~~transform the result randomly generated into the floor num rather than just the y_loc~~
         '''
         for i in self.elecars:
-            random_y = random.randint(self.moving_range[i.ele_name][0], self.moving_range[i.ele_name][1])
+            random.seed(666)
+            # make the number generated transformed to the multiple of 10, so as to adapt the following condition:
+            # the ele start at the floor where the passenger calls
+            random_y = random.randint(self.moving_range[i.ele_name][0], self.moving_range[i.ele_name][1]) // 10 * 10
+            # print('the y generated after ceiling is {}'.format(random_y))
             i.setGeometry(i.geometry().x(), random_y, i.geometry().width(), i.geometry().height())
             self.showFloor(i)
-
-
-
-
-

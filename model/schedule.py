@@ -40,7 +40,7 @@ class Schedule(object):
         if len(change_result) == 5:
             # output the notice if change needed. string
             change_notice = self._notice(
-                change_result[2], change_result[1], des)
+                chg_ele=change_result[3], temp_flr=change_result[2], des=des)
             # print(change_notice)
             change_result.append(change_notice)
             return change_result
@@ -94,10 +94,10 @@ class Schedule(object):
         ori_des = des
         result = [src]
         src, des = self.map_index(src), self.map_index(des)
-        def get_chg(cur_flr, candidate, temp_flr):
+        def get_chg(cur_ele, candidate, temp_flr):
             temp_status = self._get_y_status(candidate)
             chg_ele = self._nearest_ele(temp_status, temp_flr)
-            return [cur_flr, temp_flr, chg_ele, ori_des]
+            return [cur_ele, temp_flr, chg_ele, ori_des]
 
         if src == 0:
             if des == 2:
@@ -131,8 +131,8 @@ class Schedule(object):
         return result
 
     def _notice(self, chg_ele, temp_flr, des):
-        message = "The final destination of current elecar is {}, the people who go to {} should change to elecar {} at {}".format(
-            temp_flr, des, chg_ele, temp_flr)
+        # message = "The final destination of current elecar is {}, the people who go to {} should change to elecar {} at {}".format(temp_flr, des, chg_ele, temp_flr)
+        message = "此电梯到达楼层为{}层, 去往{}层的乘客请在{}层换乘{}".format(temp_flr, des, temp_flr,chg_ele)
         return message
 
     def _get_y_status(self, picked_name):

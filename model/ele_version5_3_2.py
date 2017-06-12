@@ -401,7 +401,7 @@ class Ui_MainWindow(object):
 
     def retranslateUi(self, MainWindow):
         MainWindow.setWindowTitle(_translate("MainWindow", "Elevator", None))
-        self.confirm_button.setText(_translate("MainWindow", "confirm", None))
+        self.confirm_button.setText(_translate("MainWindow", "确认", None))
         self.label_4.setText(_translate("MainWindow", "B2", None))
         self.label_5.setText(_translate("MainWindow", "B1", None))
         self.label_8.setText(_translate("MainWindow", "C2", None))
@@ -409,21 +409,21 @@ class Ui_MainWindow(object):
         self.label_6.setText(_translate("MainWindow", "A", None))
         self.label_10.setText(_translate("MainWindow", "D2", None))
         self.label_9.setText(_translate("MainWindow", "D1", None))
-        self.label.setText(_translate("MainWindow", "src", None))
-        self.label_2.setText(_translate("MainWindow", "des", None))
-        self.label_3.setText(_translate("MainWindow", "passenger info", None))
+        self.label.setText(_translate("MainWindow", "呼梯楼层", None))
+        self.label_2.setText(_translate("MainWindow", "目的楼层", None))
+        self.label_3.setText(_translate("MainWindow", "乘客信息", None))
         self.pass_info_broswer.setHtml(_translate("MainWindow", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
 "<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
 "p, li { white-space: pre-wrap; }\n"
 "</style></head><body style=\" font-family:\'SimSun\'; font-size:10pt; font-weight:400; font-style:normal;\">\n"
 "<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p></body></html>", None))
-        self.label_11.setText(_translate("MainWindow", "schedule info", None))
+        self.label_11.setText(_translate("MainWindow", "调度信息", None))
         self.sch_info_broswer.setHtml(_translate("MainWindow", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
 "<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
 "p, li { white-space: pre-wrap; }\n"
 "</style></head><body style=\" font-family:\'SimSun\'; font-size:10pt; font-weight:400; font-style:normal;\">\n"
 "<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p></body></html>", None))
-        self.label_12.setText(_translate("MainWindow", "change info", None))
+        self.label_12.setText(_translate("MainWindow", "换乘信息", None))
         self.chg_info_broswer.setHtml(_translate("MainWindow", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
 "<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
 "p, li { white-space: pre-wrap; }\n"
