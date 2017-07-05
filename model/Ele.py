@@ -1,7 +1,9 @@
 import time
+
 from PyQt4 import QtGui, QtCore
-from PyQt4.QtCore import pyqtSignal
 from PyQt4.QtCore import QObject
+from PyQt4.QtCore import pyqtSignal
+
 '''
 It is the second version:
 
@@ -19,6 +21,8 @@ class ElevatorCar(QtGui.QLabel):
     des_signal = pyqtSignal(int)
     obj_signal = pyqtSignal(QObject)
     phase1_signal = pyqtSignal() # the signal after one move is done
+    step1_1_signal = pyqtSignal()  # the signal after one step1_1 is done
+    step1_2_signal = pyqtSignal()  # the signal after one step1_2 is done, the step1_2 is specificly to the ele in the latter place of a route that needs ele exchange
     def __init__(self, order, location, parent=None, direction=None, ele_name=None, des=None):
         super(ElevatorCar, self).__init__(parent)
         self.order = order
@@ -30,6 +34,7 @@ class ElevatorCar(QtGui.QLabel):
         self.height = self.geometry().height()  # set the hight here to male it convenient to get in the moving function in redefineUI.py
         # self.thread = EleMove(self, self.direction)
         self._thread = EleMove(ele=self)
+        self.ready = False
         # self.thread.setAutoDelete(False)
         self.setFrameShape(QtGui.QFrame.Box)
         self.setFrameShadow(QtGui.QFrame.Sunken)
@@ -56,6 +61,8 @@ class ElevatorCar(QtGui.QLabel):
         self.direction = 'stop'
         # self._thread.terminate()
         # self._thread.exit()
+        if not self._thread.isRunning():
+            self._thread.start()
 
     @property
     def ele_thread(self):
@@ -68,6 +75,14 @@ class ElevatorCar(QtGui.QLabel):
     def reset_thread(self):
         self._thread = EleMove(ele=self)
 
+    def set_ready(self):
+        self.ready = True
+
+    def reset_signal(self):
+        # reset_signal
+        ElevatorCar.phase1_signal = pyqtSignal()  # the signal after one move is done
+        ElevatorCar.step1_1_signal = pyqtSignal()  # the signal after one step1_1 is done
+        ElevatorCar.step1_2_signal = pyqtSignal()  # the signal after one step1_2 is done
 
     def getLocation(self):
         '''

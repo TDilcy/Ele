@@ -10,7 +10,7 @@
     <x>0</x>
     <y>0</y>
     <width>1536</width>
-    <height>932</height>
+       <height>1073</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -77,10 +77,10 @@
       <cursorShape>ArrowCursor</cursorShape>
      </property>
      <property name="frameShadow">
-      <enum>QFrame::Sunken</enum>
+         <enum>QFrame::Raised</enum>
      </property>
      <property name="lineWidth">
-      <number>1</number>
+         <number>2</number>
      </property>
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
@@ -118,10 +118,10 @@
       </rect>
      </property>
      <property name="frameShadow">
-      <enum>QFrame::Sunken</enum>
+         <enum>QFrame::Raised</enum>
      </property>
      <property name="lineWidth">
-      <number>1</number>
+         <number>2</number>
      </property>
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
@@ -158,8 +158,11 @@
        <height>16</height>
       </rect>
      </property>
+        <property name="frameShadow">
+            <enum>QFrame::Raised</enum>
+        </property>
      <property name="lineWidth">
-      <number>1</number>
+         <number>2</number>
      </property>
      <property name="orientation">
       <enum>Qt::Horizontal</enum>

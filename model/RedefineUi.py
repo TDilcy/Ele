@@ -1,14 +1,12 @@
 # -*- utf-8 -*-
 from PyQt4 import QtGui
 from PyQt4.QtCore import QRect
-from PyQt4.QtCore import QThreadPool
 from PyQt4.QtCore import pyqtSignal, pyqtSlot
-# from model.ele import Ui_MainWindow
-# from model.ele_version5_3 import Ui_MainWindow
+
+from model.Ele import ElevatorCar
 from model.ele_version5_3_2 import Ui_MainWindow
-# from model.ele_3_27 import Ui_MainWindowv
-# from model.ele_bak import Ui_MainWindow
-from model.Ele import ElevatorCar, EleMove
+
+
 # import time
 # import copy
 
@@ -21,7 +19,7 @@ class RedefineUi(QtGui.QMainWindow):
         self.ui = Ui_MainWindow()
         # use the QtGui.QMainWindow to initiate the UI
         self.ui.setupUi(self)
-        self.ele_height = 15
+        self.ele_height = 10
         self.margin = 30
         # self._initFrame1(90, self.margin, 100, 600 + self.ele_height)
         self._initFrame1(90, self.margin, 100, 590 + self.ele_height)
@@ -246,7 +244,7 @@ class RedefineUi(QtGui.QMainWindow):
         ori_floor = self._calculateFloor(self.fr_num, self.HEIGHT - self.ele_height, ele.geometry().y())
         des_y = self.floor2y(des)
         # print('current floor in ele_move func is {}'.format(ori_floor))
-        print('des floor in ele_move is {}, and the y is {}'.format(des, self.floor2y(des)))
+        # print('des floor in ele_move is {}, and the y is {}'.format(des, self.floor2y(des)))
         if ori_floor < des:
             ele.moveUp()
             # self.threadpool.releaseThread()
@@ -267,8 +265,8 @@ class RedefineUi(QtGui.QMainWindow):
             ele.obj_signal.connect(lambda: self.move(ele, buttom_margin=des_y))
             # ele.thread.is_running_signal.connect(self.wait_a_while)
         elif ori_floor == des:
-            ele.ele_thread.start()
             ele.moveStop()
+            # ele.ele_thread.start()
             # ele.thread.setAutoDelete(False)
             # self.threadpool.start(ele.thread)
             # ele.thread.exit()
@@ -402,7 +400,6 @@ class RedefineUi(QtGui.QMainWindow):
             # ele.phase1_signal.connect(lambda: self.set_delete(ele))
             ele.phase1_signal.connect(lambda: self.ele_move(ele, des))
 
-
         elif len(route) == 6:
             src = route[0]
             ele1_name = route[1]
@@ -410,48 +407,80 @@ class RedefineUi(QtGui.QMainWindow):
             ele2_name = route[3]
             des = route[4]
 
+            ## step1_1: ele1 move to the temp floor
             ele1 = [i for i in self.elecars if i.ele_name == ele1_name][0]
-            ele2 = [i for i in self.elecars if i.ele_name == ele2_name][0]
             ele1.des = self.floor2y(src)
-            ele2.des = self.floor2y(temp)
-            print('the first des is {}'.format(self.floor2y(src)))
-            ele1.thread = EleMove(ele1)
-            ele2.thread = EleMove(ele2)
+            # reset the thread and the ready_status
+            ele1.reset_thread()
+            ele1.ready = False
+            # ele1.reset_signal()
             self.ele_move(ele1, src)
-            # ele1.thread.started.connect(self.show_thread_start)
-            ele1.thread.started.connect(lambda: self.show_thread_start(ele1))
-            # ele1.thread.finished.connect(self.show_thread_finished)
-            ele1.thread.finished.connect(lambda: self.show_thread_finished(ele1))
-            ele1.thread.finished.connect(lambda: self.set_2nd_des(ele1, temp))
-            ele1.thread.finished.connect(lambda: self.ele_move(ele1, temp))
-            ele1.thread.finished.connect(lambda: self.is_step1_over(ele1, self.floor2y(temp)))
-            self.step1_signal.connect(lambda: self.exe_step2(ele1, ele2, temp, des))
+            ele1.ele_thread.started.connect(lambda: self.show_thread_start(ele1))
+            ele1.ele_thread.finished.connect(lambda: self.show_thread_finished(ele1))
+            ele1.ele_thread.finished.connect(lambda: self.set_2nd_des(ele1, temp))
+            ele1.phase1_signal.connect(lambda: self.ele_move(ele1, temp))
+            ele1.step1_1_signal.connect(ele1.set_ready)
+            ele1.step1_1_signal.connect(lambda: self.step2_signal(ele1, ele2))
+
+            ## step1_2: ele2 move to the temp floor
+            ele2 = [i for i in self.elecars if i.ele_name == ele2_name][0]
+            ele2.des = self.floor2y(temp)
+            # reset the thread and the ready_status
+            ele2.reset_thread()
+            ele2.ready = False
+            # ele1.reset_signal()
+            self.ele_move(ele2, temp)
+            ele2.ele_thread.started.connect(lambda: self.show_thread_start(ele2))
+            ele2.ele_thread.finished.connect(lambda: self.show_thread_finished(ele2))
+            ele2.ele_thread.finished.connect(lambda: self.set_2nd_des(ele2, des))
+            ele2.phase1_signal.connect(ele2.set_ready)
+            ele2.phase1_signal.connect(lambda: self.step2_signal(ele1, ele2))
+
+            ## step2: ele2 move to the des floor after both ele1 and itself arriving at the temp floor
+            ele2.step1_2_signal.connect(lambda: self.ele_move(ele2, des))
+            ## and the step1_1 signal of ele is no longer useful, so connect it to the null operation
+            ele2.step1_1_signal.connect(self.null_operation)
 
 
-    def is_step1_over(self, ele, des):
-        print('the ele_des is {}, and the expected one is {}'.format(ele.des, des))
-        # if int(ele.des) == int(des):
-        if ele.des == des:
-            # time.sleep(0.2)
-            self.step1_signal.emit()
-        else:
-            pass
-    def exe_step2(self, ele1, ele2, src, des):
-        ele1.thread.finished.connect(lambda: self.ele_move(ele2, src))
-        # self.ele_move(ele2.ele_name, src)
-        ele2.thread.finished.connect(lambda: self.set_2nd_des(ele2, des))
-        ele2.phase1_signal.connect(lambda: self.ele_move(ele2, des))
+asdfasdfsa
+d  # def is_step1_1_over(self, ele, des):
+#     print('the ele_des is {}, and the expected one is {}'.format(ele.des, des))
+#     # if int(ele.des) == int(des):
+#     if ele.des == des:
+#         # time.sleep(0.2)
+#         ele.step1_1_signal.emit()
+#     else:
+#         pass
+# def exe_step2(self, ele1, ele2, src, des):
+#     ele1.thread.finished.connect(lambda: self.ele_move(ele2, src))
+#     # self.ele_move(ele2.ele_name, src)
+#     ele2.thread.finished.connect(lambda: self.set_2nd_des(ele2, des))
+#     ele2.phase1_signal.connect(lambda: self.ele_move(ele2, des))
+
+def step2_signal(self, ele1, ele2):
+    if ele1.ready & ele2.ready:
+        ele2.step1_2_signal.emit()
+        print('step1_2 signal of {} is emitted'.format(ele2.ele_name))
+
+
+def null_operation(self):
+    print('this is an operation doing nothing')
+    pass
 
     # def is_step1_over(self, des_sig, des):
     #     if des_sig == des:
     #         self.step1_signal.emit()
     @pyqtSlot()
     def set_2nd_des(self, ele, des):
-        print('............ele_des is {}, target is {}'.format(ele.des, self.floor2y(des)))
+        # print('............ele_des is {}, target is {}'.format(ele.des, self.floor2y(des)))
         if ele.des != self.floor2y(des):
             ele.des = self.floor2y(des)
             ele.phase1_signal.emit()
-            print('phase1 signal is emitted...............the ele_des is set as {}'.format(ele.des))
+            print('phase1 signal of {} is emitted...............the ele_des is set as {}'.format(ele.ele_name, ele.des))
+        else:
+            ele.step1_1_signal.emit()
+            print('step1_1 signal of {} is emitted......'.format(ele.ele_name))
+
     def set_delete(self, ele):
         ele.thread.setAutoDelete(True)
 
