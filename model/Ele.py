@@ -21,8 +21,10 @@ class ElevatorCar(QtGui.QLabel):
     des_signal = pyqtSignal(int)
     obj_signal = pyqtSignal(QObject)
     phase1_signal = pyqtSignal() # the signal after one move is done
-    step1_1_signal = pyqtSignal()  # the signal after one step1_1 is done
-    step1_2_signal = pyqtSignal()  # the signal after one step1_2 is done, the step1_2 is specificly to the ele in the latter place of a route that needs ele exchange
+    phase2_signal = pyqtSignal()  # the signal after one move is done
+
+    # step1_1_signal = pyqtSignal()  # the signal after one step1_1 is done
+    # step1_2_signal = pyqtSignal()  # the signal after one step1_2 is done, the step1_2 is specificly to the ele in the latter place of a route that needs ele exchange
     def __init__(self, order, location, parent=None, direction=None, ele_name=None, des=None):
         super(ElevatorCar, self).__init__(parent)
         self.order = order
@@ -39,7 +41,8 @@ class ElevatorCar(QtGui.QLabel):
         self.setFrameShape(QtGui.QFrame.Box)
         self.setFrameShadow(QtGui.QFrame.Sunken)
         # self.setText("EleBox %s" % str(self.order))
-        self.setText("*" * self.order)
+        # self.setText("*" * self.order)
+        self.setText(self.ele_name)
         # self.setAlignment()
         self.setAlignment(QtCore.Qt.AlignCenter)
 
@@ -77,12 +80,6 @@ class ElevatorCar(QtGui.QLabel):
 
     def set_ready(self):
         self.ready = True
-
-    def reset_signal(self):
-        # reset_signal
-        ElevatorCar.phase1_signal = pyqtSignal()  # the signal after one move is done
-        ElevatorCar.step1_1_signal = pyqtSignal()  # the signal after one step1_1 is done
-        ElevatorCar.step1_2_signal = pyqtSignal()  # the signal after one step1_2 is done
 
     def getLocation(self):
         '''
@@ -173,6 +170,7 @@ class EleMove(QtCore.QThread):
 
         else:
             self.is_running_signal.emit(True)
+            # print('the des of {} in the thread is {}, and the current loc is {}'.format(self.ele.ele_name, self.ele.des, self.ele.geometry().y()))
             while self.ele.des != self.ele.geometry().y():
                 # self.obj_signal.emit(self.ele)
                 self.ele.obj_signal.emit(self.ele)
@@ -181,7 +179,9 @@ class EleMove(QtCore.QThread):
             if self.ele.direction == 'up':
                 self.ele.obj_signal.emit(self.ele)
             # self.obj_signal.emit(self.ele)
-            print('y in thread is {}, and the expected y should be {}'.format(self.ele.geometry().y(), self.ele.des))
+            print('y of {} in thread is {}, and the expected y should be {}'.format(self.ele.ele_name,
+                                                                                    self.ele.geometry().y(),
+                                                                                    self.ele.des))
             self.done_signal.emit()
             return
 #
