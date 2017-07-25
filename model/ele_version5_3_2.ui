@@ -10,7 +10,7 @@
     <x>0</x>
     <y>0</y>
     <width>1536</width>
-       <height>1073</height>
+       <height>1089</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -188,8 +188,8 @@
     </property>
     <property name="geometry">
      <rect>
-      <x>940</x>
-      <y>90</y>
+         <x>950</x>
+         <y>180</y>
       <width>71</width>
       <height>41</height>
      </rect>
@@ -580,8 +580,8 @@
    <widget class="QWidget" name="layoutWidget">
     <property name="geometry">
      <rect>
-      <x>711</x>
-      <y>61</y>
+         <x>721</x>
+         <y>151</y>
       <width>198</width>
       <height>73</height>
      </rect>
@@ -666,10 +666,10 @@
    <widget class="QSplitter" name="splitter">
     <property name="geometry">
      <rect>
-      <x>660</x>
-      <y>150</y>
+         <x>670</x>
+         <y>240</y>
       <width>541</width>
-      <height>351</height>
+         <height>231</height>
      </rect>
     </property>
     <property name="orientation">
@@ -755,10 +755,10 @@ p, li { white-space: pre-wrap; }
    <widget class="QWidget" name="layoutWidget">
     <property name="geometry">
      <rect>
-      <x>660</x>
-      <y>500</y>
+         <x>670</x>
+         <y>470</y>
       <width>541</width>
-      <height>211</height>
+         <height>141</height>
      </rect>
     </property>
     <layout class="QVBoxLayout" name="verticalLayout_2">
@@ -798,42 +798,53 @@ p, li { white-space: pre-wrap; }
    <widget class="QWidget" name="layoutWidget">
     <property name="geometry">
      <rect>
-      <x>560</x>
-      <y>230</y>
+         <x>1090</x>
+         <y>160</y>
       <width>81</width>
-      <height>121</height>
+         <height>71</height>
      </rect>
     </property>
     <layout class="QVBoxLayout" name="verticalLayout_3">
      <item>
       <widget class="QPushButton" name="clear_button">
        <property name="text">
-        <string>Reset</string>
+           <string>重置</string>
        </property>
       </widget>
      </item>
      <item>
       <widget class="QPushButton" name="shuffle_button">
        <property name="text">
-        <string>Shuffle</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QPushButton" name="run_button">
-       <property name="text">
-        <string>Run</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QPushButton" name="stop_button">
-       <property name="text">
-        <string>Stop</string>
+           <string>随机</string>
        </property>
       </widget>
      </item>
     </layout>
+   </widget>
+      <widget class="QLabel" name="label_13">
+          <property name="geometry">
+              <rect>
+                  <x>640</x>
+                  <y>40</y>
+                  <width>631</width>
+                  <height>61</height>
+              </rect>
+          </property>
+          <property name="font">
+              <font>
+                  <family>黑体</family>
+                  <pointsize>28</pointsize>
+                  <weight>75</weight>
+                  <italic>false</italic>
+                  <bold>true</bold>
+                  <underline>false</underline>
+                  <stylestrategy>PreferAntialias</stylestrategy>
+                  <kerning>true</kerning>
+              </font>
+          </property>
+          <property name="text">
+              <string>一井道七轿厢超级电梯调度模拟系统</string>
+          </property>
    </widget>
    <zorder>layoutWidget</zorder>
    <zorder>layoutWidget</zorder>
@@ -849,6 +860,7 @@ p, li { white-space: pre-wrap; }
    <zorder>frame_4</zorder>
    <zorder>splitter_10</zorder>
    <zorder>layoutWidget</zorder>
+      <zorder>label_13</zorder>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">

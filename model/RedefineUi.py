@@ -1,11 +1,11 @@
 # -*- utf-8 -*-
+import os
 from PyQt4 import QtGui
 from PyQt4.QtCore import QRect
 from PyQt4.QtCore import pyqtSignal, pyqtSlot
 
 from model.Ele import ElevatorCar
-from model.ele_version5_3_2 import Ui_MainWindow
-
+from model.ele_version7_7 import Ui_MainWindow
 
 # import copy
 
@@ -14,16 +14,19 @@ class RedefineUi(QtGui.QMainWindow):
     step1_signal = pyqtSignal() # the signal after one step is done
     end_waiting_signal = pyqtSignal()  # the signal indicating that two eles are all ready
     complete_signal = pyqtSignal()
+    src_slider_signal = pyqtSignal()
+    des_slider_signal = pyqtSignal()
     # phase1_signal = pyqtSignal() # the signal after one move is done
     def __init__(self):
         super(RedefineUi, self).__init__()
         self.ui = Ui_MainWindow()
         # use the QtGui.QMainWindow to initiate the UI
         self.ui.setupUi(self)
+        # self.ui.horizontalLayout.setGeometry(QRect(-9, -9, 1200, 800))
         self.ele_height = 10
         self.margin = 30
         # self._initFrame1(90, self.margin, 100, 600 + self.ele_height)
-        self._initFrame1(90, self.margin, 100, 590 + self.ele_height)
+        self._initFrame1(50, self.margin, 100, 590 + self.ele_height)
         self.WIDTH = self.ui.frame_1.geometry().width()
         self.HEIGHT = self.ui.frame_1.geometry().height()
         self.Y = self.ui.frame_1.geometry().y()
@@ -32,14 +35,6 @@ class RedefineUi(QtGui.QMainWindow):
         self.fr_num = 60  # the total floor of the building
         self.lcds = [self.ui.lcd1, self.ui.lcd2, self.ui.lcd3, self.ui.lcd4, self.ui.lcd5, self.ui.lcd6, self.ui.lcd7]
         # the value in self.movin_range represents the upper and lower bound of elecar
-        # self.moving_range = {'B2': (self.Y, self.Y + (self.HEIGHT - self.ele_height) * 0.75),
-        #                      'C2': (self.Y, self.Y + (self.HEIGHT - self.ele_height) * 0.5),
-        #                      'D2': (self.Y, self.Y + (self.HEIGHT - self.ele_height) * 0.25),
-        #                      'A': (self.Y, self.Y + (self.HEIGHT - self.ele_height)),
-        #                      'B1': (self.Y + (self.HEIGHT - self.ele_height) * 0.75, self.Y + (self.HEIGHT - self.ele_height)),
-        #                      'C1': (self.Y + (self.HEIGHT - self.ele_height) * 0.5, self.Y + (self.HEIGHT - self.ele_height)),
-        #                      'D1': (self.Y + (self.HEIGHT - self.ele_height) * 0.25, self.Y + (self.HEIGHT - self.ele_height))}
-
         self.moving_range = {'B2': (self.floor2y(60), self.floor2y(16)),
                              'C2': (self.floor2y(60), self.floor2y(31)),
                              'D2': (self.floor2y(60), self.floor2y(46)),
@@ -48,39 +43,19 @@ class RedefineUi(QtGui.QMainWindow):
                              'C1': (self.floor2y(30), self.floor2y(1)),
                              'D1': (self.floor2y(45), self.floor2y(1))}
 
-        self.setGeometry(500, 100, 1300, 750)
+        self.setGeometry(0, 30, 1360, 750)
         self._initFrames()
         self._init_splitters()
         self.elecars, self.init_y_list = self._initEleCars()
 
         self._initLcds(self.init_y_list)
         self._initBounds()
+        self.ui.src_slider.valueChanged.connect(self._read_floor_from_slider)
+        self.ui.des_slider.valueChanged.connect(self._read_floor_from_slider)
+        self.ui.src_floor_box.textChanged.connect(self._adjust_slider)
+        self.ui.des_floor_box.textChanged.connect(self._adjust_slider)
+        self._load_qss()
         # self.threadpool = QThreadPool()
-
-        # self._get_y_locs()
-        # self.initScrollArea(self.elecars)
-
-    # def initScrollArea(self, elecars_to_add):
-    #     '''
-    #     ref: http://stackoverflow.com/questions/32714656/pyqt-add-a-scrollbar-to-mainwindow
-    #     '''
-    #     self.layout = QtGui.QVBoxLayout(self.ui.centralwidget)  # create the layout
-    #     self.ui.scroll_area = QtGui.QScrollArea(self.ui.centralwidget)  # create the scrollarea
-    #     self.layout.addWidget(self.ui.scroll_area)  # add scroll area to the layout
-    #     self.ui.scroll_area.setWidget(self.ui.frame_outer)  # add content in the scroll area
-    #     self.ui.scroll_area.setAutoFillBackground(True)
-    #     # self.layout = QtGui.QHBoxLayout(self.ui.widget_outer)
-# ### test if we obtain the correct y_locs, that is, the changing y_loc rather than the static location#####
-#     def test_y_locs(self):
-#         for i in self.Y_LOCS.keys():
-#             print(i + ':' + str(self.Y_LOCS[i]))
-#
-#     def _get_y_locs(self):
-#         for i in self.elecars:
-#             i.y_loc_signal.connect(self._set_y_locs)
-#
-#     def _set_y_locs(self, name, y_loc):
-#         self.Y_LOCS[name] = y_loc
 
     def _initFrame1(self, fX, fY, fWidth, fHeight):
         '''
@@ -103,21 +78,6 @@ class RedefineUi(QtGui.QMainWindow):
         S_WIDTH = self.WIDTH * 0.8
         S_HEIGHT = S_WIDTH
         S_Y = self.Y + self.HEIGHT
-
-        # the buttons splitters location
-        # self.ui.splitter_1.setGeometry(self.splitter_X(self.X, self.WIDTH, 1), S_Y, S_WIDTH, S_HEIGHT)
-        # self.ui.splitter_15.setGeometry(self.splitter_X(self.X, self.WIDTH, 2), S_Y, S_WIDTH, S_HEIGHT)
-        # self.ui.splitter_8.setGeometry(self.splitter_X(self.X, self.WIDTH, 3), S_Y, S_WIDTH, S_HEIGHT)
-        # self.ui.splitter_9.setGeometry(self.splitter_X(self.X, self.WIDTH, 4), S_Y, S_WIDTH, S_HEIGHT)
-        # The layout has changed, the splitters needed to be adjusted are spliter_15, spliter_8, and spliter_9, these are for buttons
-        # ############ deprecated #############################################
-        # self.ui.splitter_2.setGeometry(self.splitter_X(2), S_Y, S_WIDTH, S_HEIGHT)   #
-        # self.ui.splitter_3.setGeometry(self.splitter_X(3), S_Y, S_WIDTH, S_HEIGHT)   #
-        # self.ui.splitter_4.setGeometry(self.splitter_X(4), S_Y, S_WIDTH, S_HEIGHT)   #
-        # self.ui.splitter_5.setGeometry(self.splitter_X(5), S_Y, S_WIDTH, S_HEIGHT)   #
-        # self.ui.splitter_6.setGeometry(self.splitter_X(6), S_Y, S_WIDTH, S_HEIGHT)   #
-        # self.ui.splitter_7.setGeometry(self.splitter_X(7), S_Y, S_WIDTH, S_HEIGHT)   #
-        #######################################################################
 
         # the lcds location,lcd1, splitter 12,13,14
         self.ui.splitter_2.setGeometry(QRect(self.splitter_X(self.X, self.WIDTH, 1) + 20, S_Y + 20, S_WIDTH * 0.4, 20))
@@ -194,50 +154,119 @@ class RedefineUi(QtGui.QMainWindow):
 
     def _initBounds(self):
         # the y_loc of B_bound is a relative distance not the absolute one
-        self.ui.B_bound.setGeometry(0, self.floor2y(16) - self.margin,
-                                    self.WIDTH, 2)
-        self.ui.C_bound.setGeometry(0, self.floor2y(31) - self.margin,
-                                    self.WIDTH, 2)
-        self.ui.D_bound.setGeometry(0, self.floor2y(46) - self.margin,
-                                    self.WIDTH, 2)
-######################## the following part will be repalced with another way#############
-    # def up(self, order, top):
-    #     ele = self.elecars[order - 1]
-    #     ele.moveUp()
-    #     self.threadpool.start(ele.thread)
-    #     ele.thread.obj_signal.connect(lambda: self.move(ele, top_margin=top))
-    #
-    # def down(self, order, buttom):
-    #     ele = self.elecars[order - 1]
-    #     ele.moveDown()
-    #     self.threadpool.start(ele.thread)
-    #     ele.thread.obj_signal.connect(lambda: self.move(ele, buttom_margin=buttom))
-    #
-    # def stop(self, order):
-    #     ele = self.elecars[order - 1]
-    #     ele.moveStop()
-    #     self.threadpool.start(ele.thread)
-    #     ele.thread.obj_signal.connect(lambda: self.move(ele))
-#############################################################################
+        self.ui.B_bound.setGeometry(0, self.floor2y(15) - self.margin,
+                                    self.WIDTH, 1)
+        self.ui.C_bound.setGeometry(0, self.floor2y(30) - self.margin,
+                                    self.WIDTH, 1)
+        self.ui.D_bound.setGeometry(0, self.floor2y(45) - self.margin,
+                                    self.WIDTH, 1)
 
+    def _read_floor_from_slider(self, floor):
+        sender = self.sender()
+        if sender.objectName() == 'src_slider':
+            self.ui.src_floor_box.setHtml('<center><font color="#FFFFFF">{}</font></center>'.format(floor))
+        elif sender.objectName() == 'des_slider':
+            self.ui.des_floor_box.setHtml('<center><font color="#FFFFFF">{}</font></center>'.format(floor))
 
+    def _adjust_slider(self):
+        '''
+        input a number would also trigger the _read_floor_from_slider function, so the cursor would be in a
+        place, 34 would be 43 for instance, so we should alter the position of the cursor after one number is
+        input
+        :return:
+        '''
+        sender = self.sender()
+        if sender.objectName() == 'src_floor_box':
+            if self._check_input('a') == 1:
+                self.ui.src_slider.setValue(int(self.ui.src_floor_box.toPlainText()))
+                self.ui.src_floor_box.moveCursor(QtGui.QTextCursor.Right)
+            elif self._check_input('a') == 2:
+                self.ui.src_floor_box.clear()
+            elif self._check_input('a') == 0:
+                pass
 
-# ######################## this part is correspondant to the global variable method#############
-#     def up(self, order):
-#         ele = self.elecars[order - 1]
-#         ele.moveUp()
-#         ele.thread.obj_signal.connect(self.move)
-#
-#     def down(self, order):
-#         ele = self.elecars[order - 1]
-#         ele.moveDown()
-#         ele.thread.obj_signal.connect(self.move)
-#
-#     def stop(self, order):
-#         ele = self.elecars[order - 1]
-#         ele.moveStop()
-#         ele.thread.obj_signal.connect(self.move)
-#############################################################################
+        elif sender.objectName() == 'des_floor_box':
+            if self._check_input('b') == 1:
+                self.ui.des_slider.setValue(int(self.ui.des_floor_box.toPlainText()))
+                self.ui.des_floor_box.moveCursor(QtGui.QTextCursor.Right)
+            elif self._check_input('b') == 2:
+                self.ui.des_floor_box.clear()
+            elif self._check_input('b') == 0:
+                pass
+
+    def _load_qss(self):
+        '''
+        the path './style_7_8.qss' won't work, should use the following path,
+        yet when packaging, the path above can't work, so use the absolute path
+        '''
+        cur_path = os.getcwd()
+        # with open('model/style_7_8.qss', 'r') as f:
+        #     qss = f.read()
+        with open(cur_path + '\\model\\used_style.qss', 'r') as f:
+            # with open('./used_style.qss', 'r') as f:
+            qss = f.read()
+        self.setStyleSheet(qss)
+
+    def _check_input(self, floor_box):
+        msg = QtGui.QMessageBox()
+        msg.setIcon(QtGui.QMessageBox.Information)
+        msg.setStandardButtons(QtGui.QMessageBox.Ok | QtGui.QMessageBox.Cancel)
+        try:
+            if floor_box == 'a':
+                content = self.ui.src_floor_box.toPlainText()
+                if len(content) == 0:
+                    return 0
+
+            elif floor_box == 'b':
+                content = self.ui.des_floor_box.toPlainText()
+                if len(content) == 0:
+                    return 0
+            if 0 < int(content) < 61:
+                return 1
+            else:
+                msg.setText("输入超出范围[1，60]")
+                msg.setWindowTitle("范围错误")
+                # msg.buttonClicked.connect(msgbtn)
+                msg.exec_()
+                return 2
+
+        except ValueError:
+            msg.setText("非法字符输入，只接受整数输入")
+            msg.setWindowTitle("非法输入")
+            # msg.buttonClicked.connect(msgbtn)
+            msg.exec_()
+            return 2
+
+    def clear_input(self):
+        self.ui.src_floor_box.clear()
+        self.ui.des_floor_box.clear()
+
+    def reset_status(self):
+        print('resetting in ui...')
+        HEIGHT = self.ele_height
+        WIDTH = self.ui.frame_1.width()
+        self.elecars[0].setGeometry(self.ui.frame_1.geometry().x(),
+                                    self.moving_range['A'][1],
+                                    WIDTH, HEIGHT)
+        self.elecars[1].setGeometry(self.ui.frame_2.geometry().x(),
+                                    self.moving_range['B1'][1],
+                                    WIDTH, HEIGHT)
+        self.elecars[2].setGeometry(self.ui.frame_3.geometry().x(),
+                                    self.moving_range['C1'][1],
+                                    WIDTH, HEIGHT)
+        self.elecars[3].setGeometry(self.ui.frame_4.geometry().x(),
+                                    self.moving_range['D1'][1],
+                                    WIDTH, HEIGHT)
+        self.elecars[4].setGeometry(self.ui.frame_2.geometry().x(),
+                                    self.moving_range['B2'][1],
+                                    WIDTH, HEIGHT)
+        self.elecars[5].setGeometry(self.ui.frame_3.geometry().x(),
+                                    self.moving_range['C2'][1],
+                                    WIDTH, HEIGHT)
+        self.elecars[6].setGeometry(self.ui.frame_4.geometry().x(),
+                                    self.moving_range['D2'][1],
+                                    WIDTH, HEIGHT)
+
     @pyqtSlot()
     # def ele_move(self, name, des):
     def ele_move(self, ele, des):
@@ -246,8 +275,11 @@ class RedefineUi(QtGui.QMainWindow):
         des_y = self.floor2y(des)
         # print('current floor in ele_move func is {}'.format(ori_floor))
         # print('des floor in ele_move is {}, and the y is {}'.format(des, self.floor2y(des)))
-        print('the des of {} is {}, and the current loc is {}'.format(ele.ele_name, ele.des, ele.geometry().y()))
-        print('ori_floor of {} is {}, and des is {}'.format(ele.ele_name, ori_floor, des))
+        print('ori_floor of {} is {}, the ele_des is {}，and the des in this move is {}'.format(ele.ele_name, ori_floor,
+                                                                                               self._calculateFloor(
+                                                                                                   self.fr_num,
+                                                                                                   self.HEIGHT - self.ele_height,
+                                                                                                   ele.des), des))
         if ori_floor < des:
             ele.moveUp()
             # self.threadpool.releaseThread()
@@ -269,6 +301,7 @@ class RedefineUi(QtGui.QMainWindow):
             # ele.thread.is_running_signal.connect(self.wait_a_while)
         elif ori_floor == des:
             ele.moveStop()
+            # ele.obj_signal.connect(lambda: self.move(ele))
             # ele.ele_thread.start()
             # ele.thread.setAutoDelete(False)
             # self.threadpool.start(ele.thread)
@@ -382,32 +415,24 @@ class RedefineUi(QtGui.QMainWindow):
             print('the name of ele selected is {} and the its current floor is {}, its des is {}'.format(ele.ele_name, ele.getLocation(), ele.des))
             ele.des = self.floor2y(src)
             ele_des_list = [src, des]
-            print("the ele's des is set as {}".format(ele.des))
-            # print('the ele_des after set ')
-            # print('the first des is {}'.format(self.floor2y(src)))
-            # self.ele_move(ele_name, src)
-            # ele.ele_thread = ele
-            # print('the id before the thread_reset is {}'.format(id(ele.ele_thread)))
+            print("the des of {} is set as {}".format(ele.ele_name, ele.des))
             ele.reset_thread()
             # print('the id after the thread_reset is {}'.format(id(ele.ele_thread)))
             # ele.thread.setAutoDelete(False)
             self.ele_move(ele, src)
             # ele.thread.started.connect(self.show_thread_start)
             ##################################
-            print('the des of this route is {}, and its cooresponding y is {}'.format(des, self.floor2y(des)))
+            print('the des of this route is {}, and its corresponding y is {}'.format(des, self.floor2y(des)))
             # ele.thread.begin_signal.connect(lambda: self.show_thread_start(ele))
             ele.ele_thread.started.connect(lambda: self.show_thread_start(ele))
-            # ele.thread.finished.connect(self.show_thread_finished)
-            # ele.thread.done_signal.connect(lambda: self.show_thread_finished(ele))
+
             ele.ele_thread.finished.connect(lambda: self.show_thread_finished(ele))
-            # ele.thread.done_signal.connect(lambda: self.set_2nd_des(ele, des))
-            # ele.ele_thread.finished.connect(lambda: self.set_2nd_des(ele, des))
+
             ele.ele_thread.finished.connect(lambda: self.set_des(ele, ele_des_list))
-            # after 2nd des is set, the signal is emitted, and phase2 begins
-            # ele.phase1_signal.connect(lambda: self.ele_move(ele_name, des))
-            # ele.phase1_signal.connect(lambda: self.set_delete(ele))
+
             ele.phase1_signal.connect(lambda: self.ele_move(ele, des))
-            # ele.phase2_signal.connect(lambda: self.cut(ele, des))
+            ele.phase2_signal.connect(self.emit_over)
+            self.complete_signal.connect(lambda: self.discon(ele1=ele))
 
         elif len(route) == 6:
             src = route[0]
@@ -460,43 +485,16 @@ class RedefineUi(QtGui.QMainWindow):
             ele2.phase2_signal.connect(self.emit_over)
             self.complete_signal.connect(lambda: self.discon(ele1, ele2))
 
-        # def is_step1_1_over(self, ele, des):
-#     print('the ele_des is {}, and the expected one is {}'.format(ele.des, des))
-#     # if int(ele.des) == int(des):
-#     if ele.des == des:
-#         # time.sleep(0.2)
-#         ele.step1_1_signal.emit()
-#     else:
-#         pass
-# def exe_step2(self, ele1, ele2, src, des):
-#     ele1.thread.finished.connect(lambda: self.ele_move(ele2, src))
-#     # self.ele_move(ele2.ele_name, src)
-#     ele2.thread.finished.connect(lambda: self.set_2nd_des(ele2, des))
-#     ele2.phase1_signal.connect(lambda: self.ele_move(ele2, des))
-
     def null_operation(self):
         print('this is an operation doing nothing')
         pass
 
-    # def cut_phase2(self, ele1, ele2):
-    #     try:
-    #         ele1.phase2_signal.disconnect(lambda: self.step2(ele1, ele2))
-    #     except TypeError:
-    #         pass
-    # def cut(self, ele, des):
-    #     try:
-    #         ele.phase1_signal.disconnect(lambda: self.ele_move(ele, des))
-    #     except TypeError:
-    #         pass
-    #     try:
-    #         self.end_waiting_signal.disconnect(lambda: self.ele_move(ele, des))
-    #     except TypeError:
-    #         pass
 
     def emit_over(self):
+        print('emit_over sig is sent')
         self.complete_signal.emit()
 
-    def discon(self, ele1, ele2):
+    def discon(self, ele1, ele2=None):
         '''
         !!! important, cut all the connections of ele, including phase1_sig, phase2_sig, and the waiting_sig to ensure
         the latter operation won't be impacted by the previous one
@@ -505,21 +503,42 @@ class RedefineUi(QtGui.QMainWindow):
         '''
         try:
             ele1.phase1_signal.disconnect()
-            ele1.phase2_signal.disconnect()
-            print('the signals of ele1 are disconnected')
+            print('the p1_signal of {} are disconnected'.format(ele1.ele_name))
         except TypeError:
+            print("fail to cut the connection of {}'s p1_signal".format(ele1.ele_name))
             pass
         try:
-            ele2.phase1_signal.disconnect()
-            ele2.phase2_signal.disconnect()
-            print('the signals of ele2 are disconnected')
+            ele1.phase2_signal.disconnect()
+            print('the p2_signal of {} are disconnected'.format(ele1.ele_name))
         except TypeError:
+            print("fail to cut the connection of {}'s p2_signal".format(ele1.ele_name))
             pass
+        if ele2 is not None:
+            try:
+                ele2.phase1_signal.disconnect()
+                print('the p1_signal of {} are disconnected'.format(ele2.ele_name))
+            except TypeError:
+                print("fail to cut the connection of {}'s p1_signal".format(ele2.ele_name))
+                pass
+            try:
+                ele2.phase2_signal.disconnect()
+                print('the p2_signal of {} are disconnected'.format(ele2.ele_name))
+            except TypeError:
+                print("fail to cut the connection of {}'s p2_signal".format(ele2.ele_name))
+                pass
         try:
             self.end_waiting_signal.disconnect()
             print('the end_waiting_signal is disconnected')
         except TypeError:
             pass
+            # try:
+            #     ele1.phase2_signal.disconnect(ele1.set_ready)
+            # except TypeError:
+            #     pass
+            # try:
+            #     ele2.phase1_signal.disconnect(ele2.set_ready)
+            # except TypeError:
+            #     pass
             # self.end_waiting_signal.disconnect(lambda: self.discon(ele2, des))
 
     def step2(self, ele1, ele2):
@@ -529,40 +548,44 @@ class RedefineUi(QtGui.QMainWindow):
             print('the waiting signal is emitted')
             try:
                 ele1.phase2_signal.disconnect(ele1.set_ready)
+                ele1.ready = False
             except TypeError:
                 pass
             try:
                 ele2.phase1_signal.disconnect(ele2.set_ready)
+                ele2.ready = False
             except TypeError:
                 pass
-            print('waiting finished')
 
-    # def is_step1_over(self, des_sig, des):
-    #     if des_sig == des:
-    #         self.step1_signal.emit()
-    # @pyqtSlot()
-    # def set_2nd_des(self, ele, des):
-    #     # print('............ele_des is {}, target is {}'.format(ele.des, self.floor2y(des)))
-    #     if ele.des != self.floor2y(des):
-    #         ele.des = self.floor2y(des)
-    #         ele.phase1_signal.emit()
-    #         print('phase1 signal of {} is emitted...the ele_des is set as {}'.format(ele.ele_name, ele.des))
-    #     else:
-    #         ele.phase2_signal.emit()
-    #         print('phase2_signal of {} is emitted......'.format(ele.ele_name))
-    # #### another way #####
     @pyqtSlot()
     def set_des(self, ele, des_list):
         # des_list: [temp, des]
-        print('the des_list is {}'.format(des_list))
-        if ele.geometry().y() == self.floor2y(des_list[0]):
+        print('the ele_des of {} is {},and the des_list is {}'.format(ele.ele_name, self._calculateFloor(self.fr_num,
+                                                                                                         self.HEIGHT - self.ele_height,
+                                                                                                         ele.des),
+                                                                      des_list))
+        print('the geometry of ele is {}, and the first one in des_list is {}'.format(ele.geometry().y(),
+                                                                                      self.floor2y(des_list[0])))
+        # if ele.geometry().y() == self.floor2y(des_list[0]):
+        # ## the floor version, different with the y_loc version
+        if ele.getLocation() == des_list[0]:
             ele.phase1_signal.emit()
             ele.des = self.floor2y(des_list[1])
             print(
-                'phase1 signal of {} is emitted...............the ele_des is set as {},'.format(ele.ele_name, ele.des))
-        elif ele.geometry().y() == self.floor2y(des_list[1]):
+                'phase1 signal of {} is emitted...............the ele_des is set as {},'.format(ele.ele_name,
+                                                                                                self._calculateFloor(
+                                                                                                    self.fr_num,
+                                                                                                    self.HEIGHT - self.ele_height,
+                                                                                                    ele.des)))
+        # elif ele.geometry().y() == self.floor2y(des_list[1]):
+        if ele.getLocation() == des_list[1]:
             ele.phase2_signal.emit()
             print('phase2_signal of {} is emitted......'.format(ele.ele_name))
+            # else:
+            #     # if the des from last round is left, then set it as the new one
+            #     ele.des = self.floor2y(des_list[0])
+
+
 
     def set_delete(self, ele):
         ele.thread.setAutoDelete(True)
@@ -577,32 +600,6 @@ class RedefineUi(QtGui.QMainWindow):
 
     def show_info(self, y, des):
         print(y, des)
-
-    # def executeRoute(self, route):
-    #     '''
-    #     execute the route given, simulate the movement of elecars
-    #     :param route:a list containing which ele you should take and in which floor you should change ele
-    #     :return: execute the whole route
-    #     '''
-    #     # route = [2, 'D1', 10] # just for debugging
-    #     if len(route) == 3:
-    #         src = route[0]
-    #         picked_ele = route[1]
-    #         des = route[2]
-    #         ele = picked_ele # [i for i in self.elecars if i.ele_name == picked_ele][0]  # fetch the ele using the given name
-    #         self._entireMove(ele, src, des)
-    #     elif len(route) == 6:
-    #         src = route[0]
-    #         picked_ele1 = route[1]
-    #         temp = route[2]
-    #         picked_ele2 = route[3]
-    #         des = route[4]
-    #         ele1 = picked_ele1 #[i for i in self.elecars if i.ele_name == picked_ele1][0]  # fetch the ele using the given name
-    #         ele2 = picked_ele2 #[i for i in self.elecars if i.ele_name == picked_ele2][0]  # fetch the ele using the given name
-    #         self._entireMove(ele1, src, temp)
-    #         self._entireMove(ele2, temp, des)
-    #     # else:
-    #     #     pass
 
 
     def demoMotion(self):

@@ -4,11 +4,6 @@ from PyQt4 import QtGui, QtCore
 from PyQt4.QtCore import QObject
 from PyQt4.QtCore import pyqtSignal
 
-'''
-It is the second version:
-
-'''
-
 
 class ElevatorCar(QtGui.QLabel):
     """
@@ -31,7 +26,10 @@ class ElevatorCar(QtGui.QLabel):
         self.des = des
         self.ele_name = ele_name
         self.direction = direction
+        self.max_amount = 13  # the maxium people a ele can hold
+        self.des_list = []  # a list storing the destinations of passengers
         self.location = location  # the location would be sorted as 4
+        self.current_amount = 0  # the amount of people in ele
         # self.is_move_signal.emit(False)
         self.height = self.geometry().height()  # set the hight here to male it convenient to get in the moving function in redefineUI.py
         # self.thread = EleMove(self, self.direction)
@@ -45,6 +43,7 @@ class ElevatorCar(QtGui.QLabel):
         self.setText(self.ele_name)
         # self.setAlignment()
         self.setAlignment(QtCore.Qt.AlignCenter)
+        self.set_style()
 
     def moveUp(self):
         self.direction = 'up'
@@ -64,7 +63,9 @@ class ElevatorCar(QtGui.QLabel):
         self.direction = 'stop'
         # self._thread.terminate()
         # self._thread.exit()
+        # print('the stop step is in')
         if not self._thread.isRunning():
+            print('the stop step is in')
             self._thread.start()
 
     @property
@@ -110,7 +111,22 @@ class ElevatorCar(QtGui.QLabel):
         if y_1 == y_2:
             self.not_move_signal.emit()
 
+    def set_style(self):
+        qss = 'background-color:rgb(60, 60, 60); color:rgb(255, 255, 255)'
+        self.setStyleSheet(qss)
 
+    def get_current_amount(self):
+        '''
+        in reality this should be accessed by the sensor
+        '''
+        return self.current_amount
+
+    def add_amount(self, amount=1):
+        '''
+        in reality this should be accessed by the sensor
+        add one person at a time by default
+        '''
+        self.current_amount += amount
 
     def _calculateFloor(self, fr_num, f_height, loc_y):
         # ############### this method should changed cause it is too dependent with other variables############
@@ -157,7 +173,8 @@ class EleMove(QtCore.QThread):
         self.begin_signal.emit()
         # print('y in thread is {}, and the expected y should be {}'.format(self.ele.geometry().y(), self.ele.des))
         # stop the thread if direction is 'stop'
-        if self.direction == 'stop':
+        if self.ele.direction == 'stop':
+            print('the stop of the thread is in')
             self.done_signal.emit()
             return
         # else:

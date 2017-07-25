@@ -3,6 +3,7 @@ missing module named resource - imported by posix, E:\projects\elevator_Version3
 missing module named posix - imported by os, E:\projects\elevator_Version3\main.py
 missing module named _posixsubprocess - imported by subprocess, E:\projects\elevator_Version3\main.py
 missing module named 'org.python' - imported by pickle, E:\projects\elevator_Version3\main.py, xml.sax
+missing module named ce - imported by os, E:\projects\elevator_Version3\main.py
 missing module named readline - imported by cmd, code, pdb, E:\projects\elevator_Version3\main.py
 excluded module named _frozen_importlib - imported by importlib, importlib.abc, E:\projects\elevator_Version3\main.py
 missing module named _frozen_importlib_external - imported by importlib._bootstrap, importlib, importlib.abc, E:\projects\elevator_Version3\main.py
@@ -13,7 +14,6 @@ missing module named 'java.lang' - imported by platform, E:\projects\elevator_Ve
 missing module named vms_lib - imported by platform, E:\projects\elevator_Version3\main.py
 missing module named termios - imported by tty, E:\projects\elevator_Version3\main.py, getpass
 missing module named grp - imported by shutil, tarfile, E:\projects\elevator_Version3\main.py
-missing module named pwd - imported by posixpath, shutil, tarfile, http.server, webbrowser, E:\projects\elevator_Version3\main.py, netrc, getpass
-missing module named ce - imported by os, E:\projects\elevator_Version3\main.py
 missing module named _dummy_threading - imported by dummy_threading, E:\projects\elevator_Version3\main.py
 missing module named org - imported by copy, E:\projects\elevator_Version3\main.py
+missing module named pwd - imported by posixpath, shutil, tarfile, http.server, webbrowser, E:\projects\elevator_Version3\main.py, netrc, getpass
