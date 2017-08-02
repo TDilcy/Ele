@@ -15,72 +15,35 @@ class ElevatorCar(QtGui.QLabel):
     not_move_signal = pyqtSignal()
     des_signal = pyqtSignal(int)
     obj_signal = pyqtSignal(QObject)
-    phase1_signal = pyqtSignal() # the signal after one move is done
+    phase1_signal = pyqtSignal()  # the signal after one move is done
     phase2_signal = pyqtSignal()  # the signal after one move is done
 
     # step1_1_signal = pyqtSignal()  # the signal after one step1_1 is done
-    # step1_2_signal = pyqtSignal()  # the signal after one step1_2 is done, the step1_2 is specificly to the ele in the latter place of a route that needs ele exchange
-    def __init__(self, order, location, parent=None, direction=None, ele_name=None, des=None):
+    # step1_2_signal = pyqtSignal()  # the signal after one step1_2 is done,
+    # the step1_2 is specificly to the ele in the latter place of a route that
+    # needs ele exchange
+    def __init__(self, order, location, parent=None, direction='stop', ele_name=None, des_list=[], max_amount=13,
+                 **kwargs):
         super(ElevatorCar, self).__init__(parent)
         self.order = order
-        self.des = des
         self.ele_name = ele_name
         self.direction = direction
-        self.max_amount = 13  # the maxium people a ele can hold
-        self.des_list = []  # a list storing the destinations of passengers
+        self.max_amount = max_amount  # the maxium people a ele can hold
+        self.des_list = des_list  # a list storing the destinations of passengers
         self.location = location  # the location would be sorted as 4
         self.current_amount = 0  # the amount of people in ele
-        # self.is_move_signal.emit(False)
-        self.height = self.geometry().height()  # set the hight here to male it convenient to get in the moving function in redefineUI.py
-        # self.thread = EleMove(self, self.direction)
-        self._thread = EleMove(ele=self)
-        self.ready = False
-        # self.thread.setAutoDelete(False)
+        self.exg_ele_list = []  # corresponding to the des list
+        self.kwargs = kwargs
+        self.height = self.geometry().height()
+        self.move_worker = EleWorker(self, speed=0.08, move_step=1)  # the moveing part that runs in the backthread
+        self._init_appearance()
+
+    def _init_appearance(self):
         self.setFrameShape(QtGui.QFrame.Box)
         self.setFrameShadow(QtGui.QFrame.Sunken)
-        # self.setText("EleBox %s" % str(self.order))
-        # self.setText("*" * self.order)
         self.setText(self.ele_name)
-        # self.setAlignment()
         self.setAlignment(QtCore.Qt.AlignCenter)
         self.set_style()
-
-    def moveUp(self):
-        self.direction = 'up'
-        # self._thread.exit()
-        # self._thread.terminate()
-        if not self._thread.isRunning():
-            self._thread.start()
-
-    def moveDown(self):
-        self.direction = 'down'
-        # self._thread.exit()
-        # self._thread.terminate()
-        if not self._thread.isRunning():
-            self._thread.start()
-
-    def moveStop(self):
-        self.direction = 'stop'
-        # self._thread.terminate()
-        # self._thread.exit()
-        # print('the stop step is in')
-        if not self._thread.isRunning():
-            print('the stop step is in')
-            self._thread.start()
-
-    @property
-    def ele_thread(self):
-        return self._thread
-
-    @ele_thread.setter
-    def ele_thread(self, new_ele):
-        self._thread = EleMove(ele=new_ele)
-
-    def reset_thread(self):
-        self._thread = EleMove(ele=self)
-
-    def set_ready(self):
-        self.ready = True
 
     def getLocation(self):
         '''
@@ -104,13 +67,6 @@ class ElevatorCar(QtGui.QLabel):
         y_loc = self.geometry().y()
         self.y_loc_signal.emit(y_loc)
 
-    def whether_move(self):
-        y_1 = self.geometry().y()
-        time.sleep(0.1)
-        y_2 = self.geometry().y()
-        if y_1 == y_2:
-            self.not_move_signal.emit()
-
     def set_style(self):
         qss = 'background-color:rgb(60, 60, 60); color:rgb(255, 255, 255)'
         self.setStyleSheet(qss)
@@ -128,130 +84,86 @@ class ElevatorCar(QtGui.QLabel):
         '''
         self.current_amount += amount
 
-    def _calculateFloor(self, fr_num, f_height, loc_y):
-        # ############### this method should changed cause it is too dependent with other variables############
-        # the simple way, just one line
-        # return sum(map(lambda j: (fr_num - j) if (50 + f_height / fr_num * j) <= loc_y < (50 + f_height / fr_num * (j + 1)) else 0, range(fr_num)))
+    def update_des_list(self):
+        # make sure the minimum would be popped out
+        self.des_list.sort(reverse=True)
 
+
+    def _calculateFloor(self, fr_num, f_height, loc_y):
+        # ############### this method should changed cause it is too dependent
+        # the simple way, just one line
+        # return sum(map(lambda j: (fr_num - j) if (50 + f_height / fr_num * j)
+        # <= loc_y < (50 + f_height / fr_num * (j + 1)) else 0, range(fr_num)))
 
         for i in range(1, fr_num + 1):
-            # if y is between (30 + (60-(i+1)*10), 30 + (60-i)*10], then it is in ith floor
+            # if y is between (30 + (60-(i+1)*10), 30 + (60-i)*10], then it is
+            # in ith floor
             L = 30 + f_height / (fr_num - 1) * (fr_num - (i + 1))
             R = 30 + f_height / (fr_num - 1) * (fr_num - i)
             if L < loc_y <= R:
                 return i
-        # a more concrete way；
 
-        # for i in range(1, fr_num + 1):
-        #     if i == 1:
-        #         # make sure the 1st floor displayed properly
-        #         L = 30 + f_height / fr_num * (fr_num - i + 1) + 1
-        #     U = 30 + f_height / fr_num * (fr_num - (i + 1) + 1)
-        #     # print(L)
-        #     # print(U)
-        #     if U <= loc_y < L:
-        #         return i
+    def ele_floor2y(self, floor):
+        '''
+        30 + 10 * (60 - i)
+        '''
+        # 30 + (60 -i) * (( 600 - 10) / (60 - 1))
+        return 30 + (60 - floor) * ((600 - self.geometry().height()) / (60 - 1))
 
 
-class EleMove(QtCore.QThread):
-    '''
-    changelog:
-        add the method to change the direction
-    '''
-    # handle_id_signal = QtCore.pyqtSignal(QtCore.QThread)
-    # obj_signal = pyqtSignal(ElevatorCar)
-    is_running_signal = pyqtSignal(bool)
-    begin_signal = pyqtSignal()
-    done_signal = pyqtSignal()
+class EleWorker(QtCore.QObject):
+    ele_info_sig = pyqtSignal(ElevatorCar, int, int)
 
-    def __init__(self, ele):
-        super(EleMove, self).__init__()
-        self.ele = ele
-        self.direction = ele.direction
+    def __init__(self, ele, speed=0.08, move_step=1):
+        super(EleWorker, self).__init__()
+        self.subject = ele
+        self.speed = speed
+        self.move_step = move_step
 
-    def run(self):
-        self.begin_signal.emit()
-        # print('y in thread is {}, and the expected y should be {}'.format(self.ele.geometry().y(), self.ele.des))
-        # stop the thread if direction is 'stop'
-        if self.ele.direction == 'stop':
-            print('the stop of the thread is in')
-            self.done_signal.emit()
-            return
-        # else:
-        #     self.is_running_signal.emit(True)
-        #     # self.obj_signal.emit(self.ele)
-        #     for i in range(100):
-        #         self.obj_signal.emit(self.ele)
-        #
-        #         time.sleep(0.05)
+    def ele_run(self, all_ele_status={}):
+        '''
+        all_ele_status is a dict that contains the current floor of all eles, and would update as the ele moves,
+        here it is passed to judge whether a ele should be stay for a longer time time exg ele comes
+        :param all_ele_status:
+        :return:
+        '''
+        while True:
+            if len(self.subject.des_list) == 0:
+                self.subject.direction = 'stop'
+                time.sleep(5)
+                print('the status of ele are {}'.format(all_ele_status))
+            else:
+                des = self.subject.des_list.pop()
+                des_y = self.subject.ele_floor2y(des)
+                exg_ele = self.subject.exg_ele_list.pop()
+                print('the des_list of {} after popped is {}'.format(self.subject.ele_name, self.subject.des_list))
+                current_loc = self.subject.geometry().y()
+                x = self.subject.geometry().x()
+                print('current loc of {} is {}, that is {} floor, nearest des is {}'.format(self.subject.ele_name,
+                                                                                            current_loc,
+                                                                                            self.subject.getLocation(),
+                                                                                            des))
+                if current_loc > des_y:
+                    self.subject.direction = 'up'
+                    step = -self.move_step
+                elif current_loc < des_y:
+                    step = self.move_step
+                    self.subject.direction = 'down'
+                print('current step of {} is {}'.format(self.subject.ele_name, step))
+                while current_loc != des_y:
+                    current_loc += step
+                    self.ele_info_sig.emit(self.subject, x, current_loc)
+                    time.sleep(self.speed)
+                    # print(current_loc)
+                    self.subject.obj_signal.emit(self.subject)  # this signal connect the led and the all_ele_status
+                print('one des done, stay 1 seconds')
+                # if exg_ele != 'N':
+                #     # if there should change the ele, then wait until the exg ele has came
+                #     while all_ele_status[exg_ele] != des:
+                #         time.sleep(0.5)
+                # else:
+                #     time.sleep(1)
+                time.sleep(1)
 
-        else:
-            self.is_running_signal.emit(True)
-            # print('the des of {} in the thread is {}, and the current loc is {}'.format(self.ele.ele_name, self.ele.des, self.ele.geometry().y()))
-            while self.ele.des != self.ele.geometry().y():
-                # self.obj_signal.emit(self.ele)
-                self.ele.obj_signal.emit(self.ele)
-                # print('the signal is emitted')
-                time.sleep(0.05)
-            if self.ele.direction == 'up':
-                self.ele.obj_signal.emit(self.ele)
-            # self.obj_signal.emit(self.ele)
-            print('y of {} in thread is {}, and the expected y should be {}'.format(self.ele.ele_name,
-                                                                                    self.ele.geometry().y(),
-                                                                                    self.ele.des))
-            self.done_signal.emit()
-            return
-#
-# class WorkerSignals(QObject):
-#     obj_signal = pyqtSignal(ElevatorCar)
-#     is_running_signal = pyqtSignal(bool)
-#     begin_signal = pyqtSignal()
-#     done_signal = pyqtSignal()
-#
-#
-# class EleMove(QtCore.QRunnable):
-#     '''
-#     changelog:
-#         add the method to change the direction
-#     '''
-#     # handle_id_signal = QtCore.pyqtSignal(QtCore.QThread)
-#
-#     def __init__(self, ele):
-#         super(EleMove, self).__init__()
-#         self.ele = ele
-#         self.direction = ele.direction
-#         self.signals = WorkerSignals()
-#
-#     def run(self):
-#         self.signals.begin_signal.emit()
-#         # print('y in thread is {}, and the expected y should be {}'.format(self.ele.geometry().y(), self.ele.des))
-#         # stop the thread if direction is 'stop'
-#         if self.direction == 'stop':
-#             self.signals.done_signal.emit()
-#             return
-#         # else:
-#         #     self.is_running_signal.emit(True)
-#         #     # self.obj_signal.emit(self.ele)
-#         #     for i in range(100):
-#         #         self.obj_signal.emit(self.ele)
-#         #
-#         #         time.sleep(0.05)
-#
-#         else:
-#             self.signals.is_running_signal.emit(True)
-#             # self.obj_signal.emit(self.ele)
-#             # self.obj_signal.emit(self.ele)
-#             # while int(self.ele.des) != int(self.ele.geometry().y()):
-#             # while self.ele.des != self.ele.geometry().y():
-#             # print('before loop, y in thread is {}, and the expected y should be {}'.format(self.ele.geometry().y(), self.ele.des))
-#             # print(self.ele.direction)
-#             while self.ele.des != self.ele.geometry().y():
-#                 self.signals.obj_signal.emit(self.ele)
-#                 # print('the signal is emitted')
-#                 time.sleep(0.05)
-#             if self.ele.direction == 'up':
-#                 self.signals.obj_signal.emit(self.ele)
-#             # self.obj_signal.emit(self.ele)
-#             print('y in thread is {}, and the expected y should be {}'.format(self.ele.geometry().y(), self.ele.des))
-#             self.signals.done_signal.emit()
-#             return
+            if int(time.time()) % 50 == 0:
+                print('movement of {} is done, no des in the list'.format(self.subject.ele_name))

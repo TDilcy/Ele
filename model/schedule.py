@@ -52,8 +52,7 @@ class Schedule(object):
         and picked the nearest one. return picked ele_id, if there are more than one being picked, then choose one randomly
         '''
         min_distance = min([abs(i - src) for i in ele_cur_floor.values()])
-        picked_eles = [i for i in ele_cur_floor.keys() if abs(
-            ele_cur_floor[i] - src) == min_distance]
+        picked_eles = [i for i in ele_cur_floor.keys() if abs(ele_cur_floor[i] - src) == min_distance]
         return random.choice(picked_eles)
 
     def _whether_change(self, ele_picked, src, des):
@@ -125,6 +124,8 @@ class Schedule(object):
         ava_eles = self._select_avai_ele(src, des)
         # divide the eles into up, down, static set
         up_set, down_set, static_set = self._disc_status(ava_eles)
+        # ===============debug code==========
+        print('up_set is {}, down_set is {}, static_set is {}'.format(up_set, down_set, static_set))
         # get ele status
         if src < des:  # which means that the passenger expects to go upstairs
             if len(up_set) == 0:
@@ -171,11 +172,11 @@ class Schedule(object):
     def _disc_status(self, ele_names):
         '''
         divide the available eles into different sets
-        :param elenames:
+        :param ele_names:
         :return: up_set, down_set, static_set, list containing the name of the eles
         '''
         eles = [self.eles[self.ELE_DICT[i]] for i in ele_names]
-        ele_sets = {direc: [ele for ele in eles if ele.direction == direc] for direc in ['up', 'down', 'stop']}
+        ele_sets = {direc: [ele.ele_name for ele in eles if ele.direction == direc] for direc in ['up', 'down', 'stop']}
         return ele_sets['up'], ele_sets['down'], ele_sets['stop']
 
     def _cal_distance(self, name_set, floor):
@@ -216,8 +217,7 @@ class Schedule(object):
         :return:
         '''
         ele_status = self._get_y_status(static_set)
-        ele_picked = self._nearest_ele(
-            {key: ele_status[key] for key in static_set}, src)
+        ele_picked = self._nearest_ele({key: ele_status[key] for key in static_set}, src)
         return ele_picked
 
     def _get_chg(self, cur_ele, des, candidate, temp_flr, direction=None):
@@ -229,8 +229,12 @@ class Schedule(object):
         :return:
         '''
         if direction is not None:
+            # ====debug code===========
+            # print('candidate is {}'.format(candidate))
             candidate_eles = [self.eles[self.ELE_DICT[i]] for i in candidate]
-            available_eles = [ele for ele in candidate_eles if ele.direction == direction]
+            # print('candidate_eles are {}'.format(candidate_eles))
+            available_eles = [ele for ele in candidate_eles if (ele.direction == direction) | (ele.direction == 'stop')]
+            # print('available eles are {}'.format(available_eles))
             if len(available_eles) == 0:
                 if self.eles[self.ELE_DICT[cur_ele]] == temp_flr:
                     print(
@@ -240,7 +244,11 @@ class Schedule(object):
                     time.sleep(1)
                     print('in the loop of searching available eles')
                     # whether the location obtained could be the updated?
-                    self._get_chg(cur_ele, des, direction, candidate, temp_flr)
+                    # here is found to slow down the main UI, should to be handled......
+                    # ==========debug code=============
+                    # print('candidates are {}'.format(candidate))
+                    # =================================
+                    self._get_chg(cur_ele, des, candidate, temp_flr, direction=direction)
             else:
                 temp_status = self._get_y_status([ele.ele_name for ele in available_eles])
                 chg_ele = self._nearest_ele(temp_status, temp_flr)
@@ -348,6 +356,8 @@ class Schedule(object):
 
     def commands(self, src, des):
         ele_picked = self._step_one(src, des)
+        # =================debug code=============
+        print('ele_picked is {}'.format(ele_picked))
         change_result = self._whether_change_coms(ele_picked, src, des)
         if len(change_result) == 5:
             # output the notice if change needed. string

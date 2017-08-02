@@ -1,149 +1,156 @@
 # -*- coding: utf-8 -*-
 import random
 
+from PyQt4.QtCore import pyqtSignal, QObject, QThread
+
 from model.RedefineUi import RedefineUi
 from model.schedule import Schedule
 
 
 class MainWindow(RedefineUi):
+    # schedule_res_sig = pyqtSignal()
 
     def __init__(self):
         super(MainWindow, self).__init__()
         # the demo of the schedule
         # the init_variables
-        self.src = []
-        self.des = []
         self.base_passager_info = ''
         self.pass_info = ''
         self.base_sch_info = ''
         self.sch_info = ''
-        self.route = []
-        self.route_waiting = []
-        self.route_executing = []
-        self.count = 0
+        self.pass_count = 0
+        self.sche_count = 0
         self.scheduler = Schedule(self.elecars)
-
-        # fetch the input and show the info in the textbroswer
-        self.ui.confirm_button.clicked.connect(self._getSrcDes)
-        self.ui.confirm_button.clicked.connect(self._update_count)
-        # self.ui.confirm_button.clicked.connect(lambda: self._setPassText(
-        #     len(self.src), self.src[-1], '乘客呼梯'))
-        self.ui.confirm_button.clicked.connect(lambda: self._setPassText(
-            self.count, self.src[-1], '乘客呼梯'))
-        self.ui.confirm_button.clicked.connect(
-            lambda: self.ui.pass_info_broswer.setHtml(self.pass_info))
-
-        # use different strategy
-        # self.ui.confirm_button.clicked.connect(self._chooseSchStrategy)
-        self.ui.confirm_button.clicked.connect(self._get_schedule)
-        # show the route being calculated
-        # self.ui.confirm_button.clicked.connect(lambda: self._setSchText(
-        #     len(self.src), self.src[-1], self.des[-1], self.route))
-        self.ui.confirm_button.clicked.connect(lambda: self._setSchText(
-            self.count, self.src[-1], self.des[-1], self.route))
-        self.ui.confirm_button.clicked.connect(
-            lambda: self.ui.sch_info_broswer.setHtml(self.sch_info))
-        self.ui.confirm_button.clicked.connect(self.showChgText)
-        self.ui.confirm_button.clicked.connect(lambda: self.executeRoute(self.route))  # start the amitation
-        self.ui.confirm_button.clicked.connect(self.clear_input)  # clear the textbroswer after inputing
-        self.ui.reset_button.clicked.connect(self.reset_status)  # reset the status of eles
-        self.ui.reset_button.clicked.connect(lambda:
-        print('reseting eles'))  # reset the status of eles
-
-########################        ##################################################
-        # show the floor of the elevator
-        self.elecars[0].obj_signal.connect(self.showFloor)
-        self.elecars[1].obj_signal.connect(self.showFloor)
-        self.elecars[2].obj_signal.connect(self.showFloor)
-        self.elecars[3].obj_signal.connect(self.showFloor)
-        self.elecars[4].obj_signal.connect(self.showFloor)
-        self.elecars[5].obj_signal.connect(self.showFloor)
-        self.elecars[6].obj_signal.connect(self.showFloor)
-
-        # clear the des and route just for testing
-        self.ui.clear_button.clicked.connect(self.clear)
+        self.schedule_thread = QThread()
+        # ##################### what need to be done here ################################################################################
+        # 1. once the confirm is pressed, the src and des should be fetched and the corresponding infomation should be showed in the board
+        # 2. The exchange infomation should be kept
+        # ################################################################################################################################
+        # 0. Shuffle the ele status to simulating the status that all eles have been working for a while
         self.ui.shuffle_button.clicked.connect(self.shuffle)
+        # 1. Reset all thing to be the initial status
+        self.ui.clear_button.clicked.connect(self.clear)
+        # 2. The LEDs show the floor information, and update the ele_status
+        for ele in self.elecars:
+            ele.obj_signal.connect(self.showFloor)
+            ele.obj_signal.connect(self.update_ele_status)
+        # 3. Once confirm button is pressed, fetch the src and des, put it into schedule module to get the result,
+        #    and emit it out so that to trigger updating eles' des_list. This should be done in the background thread, because the schedule result are not
+        #    to be given inmediately, it contains the loop
+        # self.ui.confirm_button.clicked.connect(self.clear_input)  # clear the text-broswer after inputing
+        self.ui.confirm_button.clicked.connect(self.get_schedule_result)
+        # 4. Show the passenger info, this should be shown as the confirm button is pressed
+        self.ui.confirm_button.clicked.connect(self.show_passenger_info)
+        # 5. Show the schedule info(exchange info are contained), the info should be displayed as soon as the schedule is calculate
+        # self.schedule_res_sig.connect(self.show_schedule_info)
+        # self.schedule_res_sig.connect(self.show_schedule_info)
+        # self.scheduler.result_sig.connect(self.show_schedule_info)
+        # 6. Updating eles' des_list as the schedule result come out
+        # self.schedule_res_sig.connect(self.update_ele_des)
+        # self.scheduler.result_sig.connect(self.update_ele_des)
 
-    def _getSrcDes(self):
-        # self.src.append(self.ui.src_floor_box.value())
-        self.src.append(int(self.ui.src_floor_box.toPlainText()))
-        # print(self.ui.des_floor_box.text())
-        # self.des.append(self.ui.des_floor_box.value())
-        # print('the des is {}'.format(self.des))
-        self.des.append(int(self.ui.des_floor_box.toPlainText()))
+    def get_schedule_result(self):
+        '''
+        fetch the src, des, and use schedule module to calculate the route, then emit the result when calculating is done
+        '''
+        print('start getting result')
+        src = int(self.ui.src_floor_box.toPlainText())
+        des = int(self.ui.des_floor_box.toPlainText())
+        print('src is {} des is {}'.format(src, des))
+        worker = ScheduleWorker(self.scheduler)
+        worker.moveToThread(self.schedule_thread)
+        self.schedule_thread.start()
+        # schedule_thread = QThread()
+        self.schedule_thread.started.connect(lambda: print('the schedule thread starts'))
+        self.schedule_thread.finished.connect(lambda: print('the schedule thread done'))
+        self.schedule_thread.started.connect(lambda: worker.run_schedule(src, des))
+        worker.result_sig.connect(self.show_schedule_info)
+        worker.result_sig.connect(self.update_ele_des)
 
-    def _update_count(self):
-        self.count += 1
+    def show_passenger_info(self):
+        self.pass_count += 1
+        src = int(self.ui.src_floor_box.toPlainText())
+        self._setPassText(self.pass_count, src, '乘客呼梯')
 
-    def _setPassText(self, record, src, info):
+    def show_schedule_info(self, route):
+        # if len(route)==3: then it is [src, ele_picked, des]
+        # if len(route)==6: then it is [notice, src, cur_ele, temp_flr, chg_ele, des]
+        self.sche_count += 1
+        self._setSchText(self.sche_count, route)
+        self._showChgText(route)
+
+    def update_ele_des(self, route):
+        '''
+        update the ele des_list and the exg_list of chosen ele
+        :param route:
+        :return:
+        '''
+        print('updating ele status')
+        if len(route) == 3:
+            ele = [ele for ele in self.elecars if ele.ele_name == route[1]][0]
+            ele.des_list.append(route[-1])
+            ele.update_des_list()
+            print('the ele_list of {} is updated to {}'.format(ele.ele_name, ele.des_list))
+        elif len(route) == 6:
+            ele1 = [ele for ele in self.elecars if ele.ele_name == route[2]][0]
+            ele2 = [ele for ele in self.elecars if ele.ele_name == route[-2]][0]
+            print('des list of {} before are {}'.format(ele1.ele_name, ele1.des_list))
+            print('des list of {} before are {}'.format(ele2.ele_name, ele2.des_list))
+            ele1.des_list.append(route[3])
+            ele1.des_list.append(route[1])
+            ele1.exg_ele_list.append(route[-2])
+            ele1.exg_ele_list.append('N')
+            # ele1.update_des_list()
+
+            ele2.des_list.append(route[5])
+            ele2.des_list.append(route[3])
+            ele2.exg_ele_list.append(route[2])
+            ele2.exg_ele_list.append('N')
+            # ele2.update_des_list()
+            print('the des_list of {} is updated to {}, exg_list is {}'.format(ele1.ele_name, ele1.des_list,
+                                                                               ele1.exg_ele_list))
+            print('the des_list of {} is updated to {}, exg_list is {}'.format(ele2.ele_name, ele2.des_list,
+                                                                               ele2.exg_ele_list))
+
+    def _setPassText(self, order, src, info):
         self.base_passager_info += '<tr>    <td>{rec}</td>  <td>{src}</td>  <td>{info_kind}</td>   </tr>'.format(
-            rec=record, src=src, info_kind=info)
+            rec=order, src=src, info_kind=info)
         # self.pass_info = '<table><tr>    <th>Record</th> <th>Floor</th> <th>Info</th>    </tr>{show_info}</table>'.format(
         #     show_info=self.base_passager_info)
         self.pass_info = '<table><tr>    <th>记录</th> <th>楼层</th> <th>信息</th>    </tr>{show_info}</table>'.format(
             show_info=self.base_passager_info)
+        self.ui.pass_info_broswer.setHtml(self.pass_info)
 
-    def _setSchText(self, record, src, des, route_info):
+    def _setSchText(self, order, route):
         '''
         two condition are considered: with or without elevator exchanged
         '''
-        if len(route_info) == 3:
-            self.base_sch_info += '<tr>    <td>{rec}</td>  <td>{src}</td>  <td>{des}</td>  <td><b>{r1}</b>(<font color="#FFFFFF">{r2}</font>)</td>    </tr>'.format(
-                rec=record, src=src, des=des, r1=route_info[-1], r2=route_info[1])
-        elif len(route_info) == 6:
-            self.base_sch_info += '<tr>    <td>{rec}</td>  <td>{src}</td>  <td>{des}</td>  <td><b>{r1}</b>(<font color="#FFFFFF">{r2}</font>)——><b>{r3}</b>(<font color="#FFFFFF">{r4}</font>)</td>    </tr>'.format(
-                rec=record, src=src, des=des, r1=route_info[2], r2=route_info[1], r3=route_info[4], r4=route_info[3])
+        if len(route) == 3:
+            self.base_sch_info += '<tr>    <td>{ord}</td>  <td>{src}</td>  <td>{des}</td>  <td><b>{des}</b>(<font color="#FFFFFF">{ele}</font>)</td>    </tr>'.format(
+                ord=order, src=route[0], ele=route[1], des=route[-1])
+        elif len(route) == 6:
+            self.base_sch_info += '<tr>    <td>{ord}</td>  <td>{src}</td>  <td>{des}</td>  <td><b>{chg_flr}</b>(<font color="#FFFFFF">{cur_ele}</font>)——><b>{des}</b>(<font color="#FFFFFF">{chg_ele}</font>)</td>    </tr>'.format(
+                ord=order, src=route[1], des=route[-1], chg_flr=route[3], cur_ele=route[2], chg_ele=route[4])
         # self.sch_info = '<table><tr><th>Record</th>   <th>src</th>    <th>des</th>    <th>Route</th></tr>{show_info}</table>'.format(
         #     show_info=self.base_sch_info)
         self.sch_info = '<table><tr><th>记录</th>   <th>当前楼层</th>    <th>目的楼层</th>    <th>线路</th></tr>{show_info}</table>'.format(
             show_info=self.base_sch_info)
+        self.ui.sch_info_broswer.setHtml(self.sch_info)
 
-    def showChgText(self):
-        if len(self.route) == 6:
-            self.ui.chg_info_broswer.setHtml('<font color="#FFFFFF">{}</font>'.format(self.route[-1]))
+    def _showChgText(self, route):
+        if len(route) == 6:
+            self.ui.chg_info_broswer.setHtml('<font color="#FFFFFF">{chg_info}</font>'.format(chg_info=route[0]))
 
-    # def _chooseSchStrategy(self):
-    #     if len(self.des) <= 1:
-    #         self.route = self.scheduler.one_command(self.src[-1], self.des[-1])
-    #     else:
-    #         self.route = self.scheduler.commands(self.src[-1], self.des[-1])
-    #     print(self.route)
-
-    # def _get_schedule(self, src, des):
-    #     route = self.scheduler.commands(src, des)
-    #     self.route_waiting.append(route)
-
-
-    def _assign_des(self, src, des):
-        route = self.commands(src, des)
-        if len(route) == 3:
-            ele = [ele for ele in self.elecars if ele.ele_name == route[1]][0]
-            ele.des_list.append(route[-1])
-        elif len(route) == 6:
-            ele1 = [ele for ele in self.elecars if ele.ele_name == route[2]][0]
-            ele2 = [ele for ele in self.elecars if ele.ele_name == route[-2]][0]
-            ele1.des_list.append(route[3])
-            ele2.des_list.append(route[-1])
-
-    # def _release_route(self, ele_name, des):
-    #     for r in self.executeRoute:
-    #         # if len(r) == 3:
-    #         #     if (r[1] == ele_name) & (r[2] == des):
-    #         #         self.executeRoute.remove(r)
-    #         # elif len(r) == 6:
-    #         #     if (r[3] == ele_name) & (r[4] == des):
-    #         #         self.executeRoute.remove(r)
-    #         if (r[-2] == ele_name) & (r[-1] == des):
-    #             self.executeRoute.remove(r)
-    #     return
+    def update_ele_status(self, ele):
+        self.all_ele_status[ele.ele_name] = ele.getLocation
 
     def clear(self):
         '''
         clear  all the infomation showed in the boxes
         '''
-        self.des = []
-        self.src = []
-        self.route = []
+        # self.des = []
+        # self.src = []
+        # self.route = []
         self.ui.pass_info_broswer.clear()
         self.ui.sch_info_broswer.clear()
         self.ui.chg_info_broswer.clear()
@@ -155,10 +162,23 @@ class MainWindow(RedefineUi):
         # TODO: ~~transform the result randomly generated into the floor num rather than just the y_loc~~
         '''
         for i in self.elecars:
-            # random.seed(666)
+            random.seed(666)
             # make the number generated transformed to the multiple of 10, so as to adapt the following condition:
             # the ele start at the floor where the passenger calls
             random_y = random.randint(self.moving_range[i.ele_name][0], self.moving_range[i.ele_name][1]) // 10 * 10
             # print('the y generated after ceiling is {}'.format(random_y))
             i.setGeometry(i.geometry().x(), random_y, i.geometry().width(), i.geometry().height())
             self.showFloor(i)
+
+
+class ScheduleWorker(QObject):
+    result_sig = pyqtSignal(list)
+
+    def __init__(self, scheduler):
+        super(ScheduleWorker, self).__init__()
+        self.scheduler = scheduler
+
+    def run_schedule(self, src, des):
+        schedule_result = self.scheduler.commands(src, des)
+        print('the result calculated is \n{}'.format(schedule_result))
+        self.result_sig.emit(schedule_result)
