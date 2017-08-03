@@ -22,20 +22,23 @@ class ElevatorCar(QtGui.QLabel):
     # step1_2_signal = pyqtSignal()  # the signal after one step1_2 is done,
     # the step1_2 is specificly to the ele in the latter place of a route that
     # needs ele exchange
-    def __init__(self, order, location, parent=None, direction='stop', ele_name=None, des_list=[], max_amount=13,
+    def __init__(self, order, location, parent=None, direction='stop', ele_name=None, des_exg_list=[], max_amount=13,
+                 all_ele_status={},
                  **kwargs):
         super(ElevatorCar, self).__init__(parent)
         self.order = order
         self.ele_name = ele_name
         self.direction = direction
         self.max_amount = max_amount  # the maxium people a ele can hold
-        self.des_list = des_list  # a list storing the destinations of passengers
+        self.des_exg_list = des_exg_list  # a list storing the destinations of passengers
         self.location = location  # the location would be sorted as 4
         self.current_amount = 0  # the amount of people in ele
-        self.exg_ele_list = []  # corresponding to the des list
+        # self.exg_ele_list = []  # corresponding to the des list
+        self.all_ele_status = all_ele_status
         self.kwargs = kwargs
         self.height = self.geometry().height()
-        self.move_worker = EleWorker(self, speed=0.08, move_step=1)  # the moveing part that runs in the backthread
+        self.move_worker = EleWorker(self, speed=0.08, move_step=1,
+                                     all_ele_status=self.all_ele_status)  # the moveing part that runs in the backthread
         self._init_appearance()
 
     def _init_appearance(self):
@@ -77,17 +80,22 @@ class ElevatorCar(QtGui.QLabel):
         '''
         return self.current_amount
 
-    def add_amount(self, amount=1):
+    def change_amount(self, amount=1):
         '''
         in reality this should be accessed by the sensor
-        add one person at a time by default
+        consider one person at a time by default
         '''
         self.current_amount += amount
 
-    def update_des_list(self):
-        # make sure the minimum would be popped out
-        self.des_list.sort(reverse=True)
-
+    def update_des_exg_list(self):
+        # make sure there is no duplicate des, the exg des would replace the normal one
+        des_list = [a[0] for a in self.des_exg_list]
+        seen = set()
+        seen_add = seen.add
+        dup_idx = [idx for idx, item in enumerate(des_list) if item in seen or seen_add(item)]
+        for idx in dup_idx:
+            if self.des_exg_list[idx][1] == 'N':
+                self.des_exg_list.pop(idx)
 
     def _calculateFloor(self, fr_num, f_height, loc_y):
         # ############### this method should changed cause it is too dependent
@@ -114,13 +122,14 @@ class ElevatorCar(QtGui.QLabel):
 class EleWorker(QtCore.QObject):
     ele_info_sig = pyqtSignal(ElevatorCar, int, int)
 
-    def __init__(self, ele, speed=0.08, move_step=1):
+    def __init__(self, ele, speed=0.08, move_step=1, all_ele_status={}):
         super(EleWorker, self).__init__()
         self.subject = ele
         self.speed = speed
         self.move_step = move_step
+        self.all_ele_status = all_ele_status
 
-    def ele_run(self, all_ele_status={}):
+    def ele_run(self):
         '''
         all_ele_status is a dict that contains the current floor of all eles, and would update as the ele moves,
         here it is passed to judge whether a ele should be stay for a longer time time exg ele comes
@@ -128,42 +137,42 @@ class EleWorker(QtCore.QObject):
         :return:
         '''
         while True:
-            if len(self.subject.des_list) == 0:
+            if len(self.subject.des_exg_list) == 0:
                 self.subject.direction = 'stop'
                 time.sleep(5)
-                print('the status of ele are {}'.format(all_ele_status))
+                # print('the status of ele are {}'.format(self.all_ele_status))
             else:
-                des = self.subject.des_list.pop()
+                des_exg = self.subject.des_exg_list.pop()
+                des = des_exg[0]
+                exg_ele = des_exg[1]
                 des_y = self.subject.ele_floor2y(des)
-                exg_ele = self.subject.exg_ele_list.pop()
-                print('the des_list of {} after popped is {}'.format(self.subject.ele_name, self.subject.des_list))
+                # print('the des popped is {}'.format(des))
+                # print('the exg_ele popped is {}'.format(exg_ele))
                 current_loc = self.subject.geometry().y()
                 x = self.subject.geometry().x()
-                print('current loc of {} is {}, that is {} floor, nearest des is {}'.format(self.subject.ele_name,
-                                                                                            current_loc,
-                                                                                            self.subject.getLocation(),
-                                                                                            des))
+                # print('current loc of {} is {}, that is {} floor, nearest des is {}'.format(self.subject.ele_name, current_loc, self.subject.getLocation(),des))
                 if current_loc > des_y:
                     self.subject.direction = 'up'
                     step = -self.move_step
                 elif current_loc < des_y:
                     step = self.move_step
                     self.subject.direction = 'down'
-                print('current step of {} is {}'.format(self.subject.ele_name, step))
+                # print('current step of {} is {}'.format(self.subject.ele_name, step))
                 while current_loc != des_y:
                     current_loc += step
                     self.ele_info_sig.emit(self.subject, x, current_loc)
                     time.sleep(self.speed)
                     # print(current_loc)
                     self.subject.obj_signal.emit(self.subject)  # this signal connect the led and the all_ele_status
-                print('one des done, stay 1 seconds')
-                # if exg_ele != 'N':
-                #     # if there should change the ele, then wait until the exg ele has came
-                #     while all_ele_status[exg_ele] != des:
-                #         time.sleep(0.5)
-                # else:
-                #     time.sleep(1)
-                time.sleep(1)
+                # print('one des done, stay 1 seconds')
+                if exg_ele != 'N':
+                    # if there should change the ele, then wait until the exg ele has came
+                    while self.all_ele_status[exg_ele] != des:
+                        time.sleep(2)
+                else:
+                    time.sleep(1)
+                self.subject.change_amount(-1)  # update the amount of people in the ele
+                # time.sleep(1)
 
-            if int(time.time()) % 50 == 0:
+            if int(time.time()) % 100 == 0:
                 print('movement of {} is done, no des in the list'.format(self.subject.ele_name))

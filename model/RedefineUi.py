@@ -50,8 +50,8 @@ class RedefineUi(QtGui.QMainWindow):
         self.setGeometry(0, 30, 1360, 750)
         self._initFrames()
         self._init_splitters()
-        self.elecars, self.init_y_list = self._initEleCars()
         self.all_ele_status = {'A': 1, 'B1': 1, 'C1': 1, 'D1': 1, 'B2': 16, 'C2': 31, 'D2': 46}
+        self.elecars, self.init_y_list = self._initEleCars()
 
         self.threads = [QtCore.QThread() for i in range(len(self.elecars))]
 
@@ -113,32 +113,39 @@ class RedefineUi(QtGui.QMainWindow):
         '''
         HEIGHT = self.ele_height
         WIDTH = self.ui.frame_1.width()
-        elecar1 = ElevatorCar(1, 'L1', self, direction='stop', ele_name='A', des_list=[], max_mount=13)
+        elecar1 = ElevatorCar(1, 'L1', self, direction='stop', ele_name='A', des_exg_list=[], max_mount=13,
+                              all_ele_status=self.all_ele_status)
         elecar1.setGeometry(self.ui.frame_1.geometry().x(),
                             self.moving_range['A'][1],
                             WIDTH, HEIGHT)
-        elecar2 = ElevatorCar(2, 'L2', self, direction='stop', ele_name='B1', des_list=[], max_mount=13)
+        elecar2 = ElevatorCar(2, 'L2', self, direction='stop', ele_name='B1', des_exg_list=[], max_mount=13,
+                              all_ele_status=self.all_ele_status)
         elecar2.setGeometry(self.ui.frame_2.geometry().x(),
                             self.moving_range['B1'][1],
                             WIDTH, HEIGHT)
 
-        elecar3 = ElevatorCar(3, 'L3', self, direction='stop', ele_name='C1', des_list=[], max_mount=13)
+        elecar3 = ElevatorCar(3, 'L3', self, direction='stop', ele_name='C1', des_exg_list=[], max_mount=13,
+                              all_ele_status=self.all_ele_status)
         elecar3.setGeometry(self.ui.frame_3.geometry().x(),
                             self.moving_range['C1'][1],
                             WIDTH, HEIGHT)
-        elecar4 = ElevatorCar(4, 'L4', self, direction='stop', ele_name='D1', des_list=[], max_mount=13)
+        elecar4 = ElevatorCar(4, 'L4', self, direction='stop', ele_name='D1', des_exg_list=[], max_mount=13,
+                              all_ele_status=self.all_ele_status)
         elecar4.setGeometry(self.ui.frame_4.geometry().x(),
                             self.moving_range['D1'][1],
                             WIDTH, HEIGHT)
-        elecar5 = ElevatorCar(5, 'U1', self, direction='stop', ele_name='B2', des_list=[], max_mount=13)
+        elecar5 = ElevatorCar(5, 'U1', self, direction='stop', ele_name='B2', des_exg_list=[], max_mount=13,
+                              all_ele_status=self.all_ele_status)
         elecar5.setGeometry(self.ui.frame_2.geometry().x(),
                             self.moving_range['B2'][1],
                             WIDTH, HEIGHT)
-        elecar6 = ElevatorCar(6, 'U2', self, direction='stop', ele_name='C2', des_list=[], max_mount=13)
+        elecar6 = ElevatorCar(6, 'U2', self, direction='stop', ele_name='C2', des_exg_list=[], max_mount=13,
+                              all_ele_status=self.all_ele_status)
         elecar6.setGeometry(self.ui.frame_3.geometry().x(),
                             self.moving_range['C2'][1],
                             WIDTH, HEIGHT)
-        elecar7 = ElevatorCar(7, 'U3', self, direction='stop', ele_name='D2', des_list=[], max_mount=13)
+        elecar7 = ElevatorCar(7, 'U3', self, direction='stop', ele_name='D2', des_exg_list=[], max_mount=13,
+                              all_ele_status=self.all_ele_status)
         elecar7.setGeometry(self.ui.frame_4.geometry().x(),
                             self.moving_range['D2'][1],
                             WIDTH, HEIGHT)
@@ -314,9 +321,8 @@ class RedefineUi(QtGui.QMainWindow):
     def start_ele_loop(self):
         for index, ele in enumerate(self.elecars):
             ele.move_worker.moveToThread(self.threads[index])
-            self.threads[index].started.connect(
-                lambda: print('the {} is started'.format(self.threads[index].currentThreadId())))
-            self.threads[index].started.connect(lambda: ele.move_worker.ele_run(all_ele_status=self.all_ele_status))
-            # self.threads[index].started.connect(ele.move_worker.ele_run)
+            # self.threads[index].started.connect(lambda: print('the {} is started'.format(self.threads[index].currentThreadId())))
+            # self.threads[index].started.connect(lambda: ele.move_worker.ele_run(all_ele_status=self.all_ele_statu))
+            self.threads[index].started.connect(ele.move_worker.ele_run)
             # pass
             self.threads[index].start()

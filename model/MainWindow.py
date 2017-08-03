@@ -35,7 +35,7 @@ class MainWindow(RedefineUi):
             ele.obj_signal.connect(self.showFloor)
             ele.obj_signal.connect(self.update_ele_status)
         # 3. Once confirm button is pressed, fetch the src and des, put it into schedule module to get the result,
-        #    and emit it out so that to trigger updating eles' des_list. This should be done in the background thread, because the schedule result are not
+        #    and emit it out so that to trigger updating eles' des_exg_list. This should be done in the background thread, because the schedule result are not
         #    to be given inmediately, it contains the loop
         # self.ui.confirm_button.clicked.connect(self.clear_input)  # clear the text-broswer after inputing
         self.ui.confirm_button.clicked.connect(self.get_schedule_result)
@@ -45,7 +45,7 @@ class MainWindow(RedefineUi):
         # self.schedule_res_sig.connect(self.show_schedule_info)
         # self.schedule_res_sig.connect(self.show_schedule_info)
         # self.scheduler.result_sig.connect(self.show_schedule_info)
-        # 6. Updating eles' des_list as the schedule result come out
+        # 6. Updating eles' des_exg_list as the schedule result come out
         # self.schedule_res_sig.connect(self.update_ele_des)
         # self.scheduler.result_sig.connect(self.update_ele_des)
 
@@ -66,6 +66,8 @@ class MainWindow(RedefineUi):
         self.schedule_thread.started.connect(lambda: worker.run_schedule(src, des))
         worker.result_sig.connect(self.show_schedule_info)
         worker.result_sig.connect(self.update_ele_des)
+        worker.result_sig.connect(self.schedule_thread.exit)
+
 
     def show_passenger_info(self):
         self.pass_count += 1
@@ -81,36 +83,36 @@ class MainWindow(RedefineUi):
 
     def update_ele_des(self, route):
         '''
-        update the ele des_list and the exg_list of chosen ele
+        update the ele des_exg_list and the exg_list of chosen ele
         :param route:
         :return:
         '''
         print('updating ele status')
         if len(route) == 3:
+            # route is like: [src, ele, des]
+            # this condition contains the insert situation
             ele = [ele for ele in self.elecars if ele.ele_name == route[1]][0]
-            ele.des_list.append(route[-1])
-            ele.update_des_list()
-            print('the ele_list of {} is updated to {}'.format(ele.ele_name, ele.des_list))
+            ele.des_exg_list.append((route[-1], 'N'))
+            ele.des_exg_list.append((route[0], 'N'))
+            # ele.update_des_exg_list()
+            print('the ele_list of {} is updated to {}'.format(ele.ele_name, ele.des_exg_list))
         elif len(route) == 6:
+            # route is like: [notice, src, cur_ele, temp_flr, chg_ele, des]
             ele1 = [ele for ele in self.elecars if ele.ele_name == route[2]][0]
             ele2 = [ele for ele in self.elecars if ele.ele_name == route[-2]][0]
-            print('des list of {} before are {}'.format(ele1.ele_name, ele1.des_list))
-            print('des list of {} before are {}'.format(ele2.ele_name, ele2.des_list))
-            ele1.des_list.append(route[3])
-            ele1.des_list.append(route[1])
-            ele1.exg_ele_list.append(route[-2])
-            ele1.exg_ele_list.append('N')
-            # ele1.update_des_list()
+            # print('des list of {} before are {}'.format(ele1.ele_name, ele1.des_exg_list))
+            # print('des list of {} before are {}'.format(ele2.ele_name, ele2.des_exg_list))
+            ele1.des_exg_list.append((route[3], route[-2]))
+            ele1.des_exg_list.append((route[1], 'N'))
+            ele1.update_des_exg_list()  # get rid of the duplicate des
+            ele1.change_amount(1)
 
-            ele2.des_list.append(route[5])
-            ele2.des_list.append(route[3])
-            ele2.exg_ele_list.append(route[2])
-            ele2.exg_ele_list.append('N')
-            # ele2.update_des_list()
-            print('the des_list of {} is updated to {}, exg_list is {}'.format(ele1.ele_name, ele1.des_list,
-                                                                               ele1.exg_ele_list))
-            print('the des_list of {} is updated to {}, exg_list is {}'.format(ele2.ele_name, ele2.des_list,
-                                                                               ele2.exg_ele_list))
+            ele2.des_exg_list.append((route[5], 'N'))
+            ele2.des_exg_list.append((route[3], route[2]))
+            ele2.update_des_exg_list()
+            ele2.change_amount(1)
+            print('the des_exg_list of {} is updated to {}'.format(ele1.ele_name, ele1.des_exg_list))
+            print('the des_exg_list of {} is updated to {}'.format(ele2.ele_name, ele2.des_exg_list))
 
     def _setPassText(self, order, src, info):
         self.base_passager_info += '<tr>    <td>{rec}</td>  <td>{src}</td>  <td>{info_kind}</td>   </tr>'.format(
@@ -142,7 +144,7 @@ class MainWindow(RedefineUi):
             self.ui.chg_info_broswer.setHtml('<font color="#FFFFFF">{chg_info}</font>'.format(chg_info=route[0]))
 
     def update_ele_status(self, ele):
-        self.all_ele_status[ele.ele_name] = ele.getLocation
+        self.all_ele_status[ele.ele_name] = ele.getLocation()
 
     def clear(self):
         '''
@@ -179,6 +181,7 @@ class ScheduleWorker(QObject):
         self.scheduler = scheduler
 
     def run_schedule(self, src, des):
+        print('seeking result..........')
         schedule_result = self.scheduler.commands(src, des)
         print('the result calculated is \n{}'.format(schedule_result))
         self.result_sig.emit(schedule_result)

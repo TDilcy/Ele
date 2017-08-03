@@ -355,6 +355,7 @@ class Schedule(object):
             return [src, ele_picked, des]
 
     def commands(self, src, des):
+        print('step one begins...')
         ele_picked = self._step_one(src, des)
         # =================debug code=============
         print('ele_picked is {}'.format(ele_picked))
