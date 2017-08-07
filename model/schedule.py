@@ -13,12 +13,15 @@ class Schedule(object):
         super(Schedule, self).__init__()
         self.eles = eles
         # should the AVAI_MATRIX be changed
-        self.AVAI_MATRIX = [[('A', 'B1', 'C1', 'D1'), ('A', 'C1', 'D1'), ('A', 'C1', 'D1'), ('A', 'C1', 'D1')],
-                            [('A', 'C1', 'D1'), ('A', 'B2', 'C1', 'D1'),
-                             ('A', 'B2', 'D1'), ('A', 'B2', 'D1')],
-                            [('A', 'B2', 'D1'), ('A', 'B2', 'D1'),
-                             ('A', 'B2', 'C2', 'D1'), ('A', 'B2', 'C2')],
-                            [('A', 'B2', 'C2', 'D2'), ('A', 'B2', 'C2'), ('A', 'B2', 'C2'), ('A', 'B2', 'C2', 'D2')]]
+        # self.AVAI_MATRIX = [[('A', 'B1', 'C1', 'D1'), ('A', 'C1', 'D1'), ('A', 'C1', 'D1'), ('A', 'C1', 'D1')],
+        #                     [('A', 'C1', 'D1'), ('A', 'B2', 'C1', 'D1'), ('A', 'B2', 'D1'), ('A', 'B2', 'D1')],
+        #                     [('A', 'B2', 'D1'), ('A', 'B2', 'D1'), ('A', 'B2', 'C2', 'D1'), ('A', 'B2', 'C2')],
+        #                     [('A', 'B2', 'C2', 'D2'), ('A', 'B2', 'C2'), ('A', 'B2', 'C2'), ('A', 'B2', 'C2', 'D2')]]
+
+        self.AVAI_MATRIX = [('A', 'B1', 'C1', 'D1'),
+                            ('A', 'B2', 'C1', 'D1'),
+                            ('A', 'B2', 'C2', 'D1'),
+                            ('A', 'B2', 'C2', 'D2')]
 
         self.ELE_DICT = {'A': 0, 'B1': 1, 'C1': 2,
                          'D1': 3, 'B2': 4, 'C2': 5, 'D2': 6}
@@ -36,13 +39,15 @@ class Schedule(object):
             print('input floor number out of range')
             raise IndexError
 
-    def _select_avai_ele(self, src, des):
+    def _select_avai_ele(self, src):
         '''
         1. map the src and des to the matrix index.
         2. select available ele_cars from a matrix using the src and des as index, return ele_id set
         '''
-        src, des = self.map_index(src), self.map_index(des)
-        avai_eles = self.AVAI_MATRIX[src][des]
+        # src, des = self.map_index(src), self.map_index(des)
+        src = self.map_index(src)
+        # avai_eles = self.AVAI_MATRIX[src][des]
+        avai_eles = self.AVAI_MATRIX[src]
         return avai_eles
 
     def _nearest_ele(self, ele_cur_floor, src):
@@ -121,11 +126,11 @@ class Schedule(object):
         got the ele in first step
         '''
         # select available ele_cars. return ele_id list
-        ava_eles = self._select_avai_ele(src, des)
+        ava_eles = self._select_avai_ele(src)
         # divide the eles into up, down, static set
         up_set, down_set, static_set = self._disc_status(ava_eles)
         # ===============debug code==========
-        print('up_set is {}, down_set is {}, static_set is {}'.format(up_set, down_set, static_set))
+        # print('up_set is {}, down_set is {}, static_set is {}'.format(up_set, down_set, static_set))
         # get ele status
         if src < des:  # which means that the passenger expects to go upstairs
             if len(up_set) == 0:
@@ -140,34 +145,52 @@ class Schedule(object):
                     time.sleep(1)
                     self.commands(src, des)
             else:
-                Dcc, Dcd = self._cal_distance(up_set.keys(), src)
-                Dcc_Dcd = {key: abs(Dcc[key]) - abs(Dcd[key])
-                           for key in Dcc.keys() if Dcc[key] <= 0}
+                # print('the up_set is {}'.format(up_set))
+                Dcc, Dcd = self._cal_distance(up_set, src)
+                Dcc_Dcd = {key: abs(Dcc[key]) - abs(Dcd[key]) for key in Dcc.keys() if Dcc[key] <= 0}
         elif src > des:
             if len(down_set) == 0:
-                ele_picked = self._choose_from_static(static_set, src)
-                return ele_picked
+                if len(static_set) != 0:
+                    ele_picked = self._choose_from_static(static_set, src)
+                    return ele_picked
+                else:
+                    time.sleep(1)
+                    self.commands(src, des)
             else:
-                Dcc, Dcd = self._cal_distance(up_set.keys(), src)
-                Dcc_Dcd = {key: abs(Dcc[key]) - abs(Dcd[key])
-                           for key in Dcc.keys() if Dcc[key] >= 0}
+                # print('the down_set is {}'.format(down_set))
+                Dcc, Dcd = self._cal_distance(up_set, src)
+                Dcc_Dcd = {key: abs(Dcc[key]) - abs(Dcd[key]) for key in Dcc.keys() if Dcc[key] >= 0}
         elif src == des:
             print('The destination is the current floor, no need for elevator!')
             return 'X'
-        # get the min(Dcc_Dcd.values>0), or choose from (Dcc_Dcd.values>0)
-        # randomly
-        above_0 = [value for value in Dcc_Dcd.values() if value > 0]
-        if len(above_0) != 0:
-            ele_picked = random.choice(
-                [i for i in Dcc_Dcd.keys() if Dcc_Dcd[i] == min(above_0)])
+        # get the min(Dcc_Dcd.values>0), or choose from (Dcc_Dcd.values>0) randomly
+
+        # # if Dcc_Dcd is empty, then check static set
+        if len(Dcc_Dcd) == 0:
+            if len(static_set) != 0:
+                ele_picked = self._choose_from_static(static_set, src)
+                return ele_picked
+            else:
+                time.sleep(1)
+                self.commands(src, des)
         else:
-            ele_picked = random.choice(
-                [i for i in Dcc_Dcd.keys() if Dcc_Dcd[i] < 0])
-        if not self._is_full(ele_picked, src):
-            return ele_picked
-        else:
-            time.sleep(1)
-            self.commands(src, des)
+            above_0 = [value for value in Dcc_Dcd.values() if value > 0]
+            below_0 = [i for i in Dcc_Dcd.keys() if Dcc_Dcd[i] < 0]
+            # ========================== debug code=============
+            # print('Dcc is {}, Dcd is {}'.format(Dcc, Dcd))
+            # print('Dcc_Dcd is {}'.format(Dcc_Dcd))
+            # print('the ele set above 0 are {}'.format(above_0))
+            # print('the ele set below 0 are {}'.format(below_0))
+            # ======================================================
+            if len(above_0) != 0:
+                ele_picked = random.choice([i for i in Dcc_Dcd.keys() if Dcc_Dcd[i] == min(above_0)])
+            else:
+                ele_picked = random.choice([i for i in Dcc_Dcd.keys() if Dcc_Dcd[i] < 0])
+            if not self._is_full(ele_picked, src):
+                return ele_picked
+            else:
+                time.sleep(1)
+                self.commands(src, des)
 
     def _disc_status(self, ele_names):
         '''
@@ -189,18 +212,19 @@ class Schedule(object):
         '''
         eles = {i: self.eles[self.ELE_DICT[i]] for i in name_set}
         Dcc = {i: eles[i].getLocation() - floor for i in eles.keys()}
-        Dcd = {i: eles[i].getLocation() - min(eles[i].des_list) for i in eles.keys()}
+        Dcd = {i: eles[i].getLocation() - eles[i].des_exg_list[-1][0] for i in eles.keys()}
         return Dcc, Dcd
 
-    def _is_full(self, ele, floor):
+    def _is_full(self, ele_name, floor):
         '''
         judge if the ele would be full when arriving at specific floor, the index may be the number of people or the total weight
         :param ele:
         :param floor:
         :return: Boolean
         '''
+        ele = [e for e in self.eles if e.ele_name == ele_name][0]
         current_amount = ele.get_current_amount()
-        midway_floors = [des_floor for des_floor in ele.des_list if des_floor < floor]
+        midway_floors = [des_floor[0] for des_floor in ele.des_exg_list if des_floor[0] < floor]
         increasement = len(
             midway_floors) * 1  # this number is reserved to be changed to simulate the real situation that more than one person would get in at one time
         total_amount = current_amount + increasement
@@ -229,12 +253,13 @@ class Schedule(object):
         :return:
         '''
         if direction is not None:
+            print('exchange direction is {}'.format(direction))
             # ====debug code===========
             # print('candidate is {}'.format(candidate))
             candidate_eles = [self.eles[self.ELE_DICT[i]] for i in candidate]
             # print('candidate_eles are {}'.format(candidate_eles))
             available_eles = [ele for ele in candidate_eles if (ele.direction == direction) | (ele.direction == 'stop')]
-            # print('available eles are {}'.format(available_eles))
+            print('available eles are {}'.format([ele.ele_name for ele in available_eles]))
             if len(available_eles) == 0:
                 if self.eles[self.ELE_DICT[cur_ele]] == temp_flr:
                     print(
@@ -274,6 +299,8 @@ class Schedule(object):
             elif des == 2:
                 if ele_picked == 'C1':
                     result.extend(self._get_chg('C1', ori_des, ['A', 'B2', 'D1'], 30, direction=ele_direction))
+                elif ele_picked == 'B1':
+                    result.extend(self._get_chg('B1', ori_des, ['A', 'D1'], 15, direction=ele_direction))
             elif des == 3:
                 if ele_picked == 'B1':
                     result.extend(self._get_chg('B1', ori_des, ['A'], 15, direction=ele_direction))
@@ -355,10 +382,9 @@ class Schedule(object):
             return [src, ele_picked, des]
 
     def commands(self, src, des):
-        print('step one begins...')
         ele_picked = self._step_one(src, des)
         # =================debug code=============
-        print('ele_picked is {}'.format(ele_picked))
+        print('ele_picked is {}, and des is {}'.format(ele_picked, des))
         change_result = self._whether_change_coms(ele_picked, src, des)
         if len(change_result) == 5:
             # output the notice if change needed. string

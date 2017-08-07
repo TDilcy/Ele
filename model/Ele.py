@@ -142,9 +142,10 @@ class EleWorker(QtCore.QObject):
                 time.sleep(5)
                 # print('the status of ele are {}'.format(self.all_ele_status))
             else:
-                des_exg = self.subject.des_exg_list.pop()
+                des_exg = self.subject.des_exg_list[-1]
                 des = des_exg[0]
                 exg_ele = des_exg[1]
+                is_terminal = des_exg[2]
                 des_y = self.subject.ele_floor2y(des)
                 # print('the des popped is {}'.format(des))
                 # print('the exg_ele popped is {}'.format(exg_ele))
@@ -165,14 +166,20 @@ class EleWorker(QtCore.QObject):
                     # print(current_loc)
                     self.subject.obj_signal.emit(self.subject)  # this signal connect the led and the all_ele_status
                 # print('one des done, stay 1 seconds')
+                self.subject.direction = 'stop'
                 if exg_ele != 'N':
                     # if there should change the ele, then wait until the exg ele has came
                     while self.all_ele_status[exg_ele] != des:
                         time.sleep(2)
                 else:
                     time.sleep(1)
-                self.subject.change_amount(-1)  # update the amount of people in the ele
+                # print('the des_exg_list of {} before popped is {}'.format(self.subject.ele_name, self.subject.des_exg_list))
+                if is_terminal == 'Y':
+                    self.subject.change_amount(-1)  # update the amount of people in the ele
+                self.subject.des_exg_list.pop()  # delete the complete des until done, in case that Dcd won't be wrongly calculated
+                # print('the des_exg_list of {} after popped is {}'.format(self.subject.ele_name, self.subject.des_exg_list))
                 # time.sleep(1)
+                print('the amount of people in {} is {}'.format(self.subject.ele_name, self.subject.current_amount))
 
             if int(time.time()) % 100 == 0:
                 print('movement of {} is done, no des in the list'.format(self.subject.ele_name))

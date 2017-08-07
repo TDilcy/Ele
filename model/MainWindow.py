@@ -21,7 +21,7 @@ class MainWindow(RedefineUi):
         self.pass_count = 0
         self.sche_count = 0
         self.scheduler = Schedule(self.elecars)
-        self.schedule_thread = QThread()
+        self.schedule_threads = [QThread() for i in range(10)]
         # ##################### what need to be done here ################################################################################
         # 1. once the confirm is pressed, the src and des should be fetched and the corresponding infomation should be showed in the board
         # 2. The exchange infomation should be kept
@@ -57,16 +57,18 @@ class MainWindow(RedefineUi):
         src = int(self.ui.src_floor_box.toPlainText())
         des = int(self.ui.des_floor_box.toPlainText())
         print('src is {} des is {}'.format(src, des))
+        idle_thread_idx = [idx for idx, thread in enumerate(self.schedule_threads) if not thread.isRunning()]
+        idx = random.choice(idle_thread_idx)
         worker = ScheduleWorker(self.scheduler)
-        worker.moveToThread(self.schedule_thread)
-        self.schedule_thread.start()
-        # schedule_thread = QThread()
-        self.schedule_thread.started.connect(lambda: print('the schedule thread starts'))
-        self.schedule_thread.finished.connect(lambda: print('the schedule thread done'))
-        self.schedule_thread.started.connect(lambda: worker.run_schedule(src, des))
+        worker.moveToThread(self.schedule_threads[idx])
+        self.schedule_threads[idx].start()
+        # self.schedule_threads[idx] = QThread()
+        self.schedule_threads[idx].started.connect(lambda: print('the schedule thread starts'))
+        self.schedule_threads[idx].finished.connect(lambda: print('the schedule thread done'))
+        self.schedule_threads[idx].started.connect(lambda: worker.run_schedule(src, des))
         worker.result_sig.connect(self.show_schedule_info)
         worker.result_sig.connect(self.update_ele_des)
-        worker.result_sig.connect(self.schedule_thread.exit)
+        worker.result_sig.connect(self.schedule_threads[idx].exit)
 
 
     def show_passenger_info(self):
@@ -87,13 +89,13 @@ class MainWindow(RedefineUi):
         :param route:
         :return:
         '''
-        print('updating ele status')
+        # print('updating ele status')
         if len(route) == 3:
             # route is like: [src, ele, des]
             # this condition contains the insert situation
             ele = [ele for ele in self.elecars if ele.ele_name == route[1]][0]
-            ele.des_exg_list.append((route[-1], 'N'))
-            ele.des_exg_list.append((route[0], 'N'))
+            ele.des_exg_list.insert(0, (route[-1], 'N', 'Y'))
+            ele.des_exg_list.insert(1, (route[0], 'N', 'N'))
             # ele.update_des_exg_list()
             print('the ele_list of {} is updated to {}'.format(ele.ele_name, ele.des_exg_list))
         elif len(route) == 6:
@@ -102,15 +104,17 @@ class MainWindow(RedefineUi):
             ele2 = [ele for ele in self.elecars if ele.ele_name == route[-2]][0]
             # print('des list of {} before are {}'.format(ele1.ele_name, ele1.des_exg_list))
             # print('des list of {} before are {}'.format(ele2.ele_name, ele2.des_exg_list))
-            ele1.des_exg_list.append((route[3], route[-2]))
-            ele1.des_exg_list.append((route[1], 'N'))
+            ele1.des_exg_list.insert(0, (route[3], route[-2], 'Y'))
+            ele1.des_exg_list.insert(1, (route[1], 'N', 'N'))
             ele1.update_des_exg_list()  # get rid of the duplicate des
             ele1.change_amount(1)
+            print('the amount of people in {} is {}'.format(ele1.ele_name, ele1.current_amount))
 
-            ele2.des_exg_list.append((route[5], 'N'))
-            ele2.des_exg_list.append((route[3], route[2]))
+            ele2.des_exg_list.insert(0, (route[5], 'N', 'Y'))
+            ele2.des_exg_list.insert(1, (route[3], route[2], 'N'))
             ele2.update_des_exg_list()
             ele2.change_amount(1)
+            print('the amount of people in {} is {}'.format(ele2.ele_name, ele2.current_amount))
             print('the des_exg_list of {} is updated to {}'.format(ele1.ele_name, ele1.des_exg_list))
             print('the des_exg_list of {} is updated to {}'.format(ele2.ele_name, ele2.des_exg_list))
 
@@ -181,7 +185,7 @@ class ScheduleWorker(QObject):
         self.scheduler = scheduler
 
     def run_schedule(self, src, des):
-        print('seeking result..........')
+        # print('seeking result..........')
         schedule_result = self.scheduler.commands(src, des)
-        print('the result calculated is \n{}'.format(schedule_result))
+        # print('the result calculated is \n{}'.format(schedule_result))
         self.result_sig.emit(schedule_result)
