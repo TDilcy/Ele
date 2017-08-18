@@ -6,7 +6,8 @@ from PyQt4.QtCore import QRect
 from PyQt4.QtCore import pyqtSignal
 
 from model.Ele import ElevatorCar
-from model.ele_version7_7 import Ui_MainWindow
+# from model.ele_version7_7 import Ui_MainWindow
+from model.ele_version_8_10 import Ui_MainWindow
 
 
 # import copy
@@ -14,7 +15,7 @@ from model.ele_version7_7 import Ui_MainWindow
 
 class RedefineUi(QtGui.QMainWindow):
     Y_LOCS = {'A': 0, 'B1': 0, 'B2': 0, 'C1': 0, 'C2': 0, 'D1': 0, 'D2': 0}
-    step1_signal = pyqtSignal() # the signal after one step is done
+    step1_signal = pyqtSignal()  # the signal after one step is done
     end_waiting_signal = pyqtSignal()  # the signal indicating that two eles are all ready
     complete_signal = pyqtSignal()
     src_slider_signal = pyqtSignal()
@@ -54,21 +55,18 @@ class RedefineUi(QtGui.QMainWindow):
         self.elecars, self.init_y_list = self._initEleCars()
 
         self.threads = [QtCore.QThread() for i in range(len(self.elecars))]
+        self.schedule_threads = [QtCore.QThread() for i in range(4)]
+        # print('the main thread in RedefineUi is\n{}'.format(QtCore.QThread.currentThread()))
+        # print('the threads for ele are:\n{}\n{}\n{}\n{}\n{}\n{}\n{}'.format(self.threads[0], self.threads[1], self.threads[2], self.threads[3], self.threads[4], self.threads[5], self.threads[6]))
 
         self._initLcds(self.init_y_list)
         self._initBounds()
-        self.ui.src_slider.valueChanged.connect(self._read_floor_from_slider)
-        self.ui.des_slider.valueChanged.connect(self._read_floor_from_slider)
-        self.ui.src_floor_box.textChanged.connect(self._adjust_slider)
-        self.ui.des_floor_box.textChanged.connect(self._adjust_slider)
+        self._initInput()
         self._load_qss()
-        #### following code control the movement ##############
+        # ### following code control the movement ##############
         for i in self.elecars:
             i.move_worker.ele_info_sig.connect(self.move_one_step)
         self.start_ele_loop()
-
-
-
 
     def _initFrame1(self, fX, fY, fWidth, fHeight):
         '''
@@ -89,7 +87,6 @@ class RedefineUi(QtGui.QMainWindow):
 
     def _init_splitters(self):
         S_WIDTH = self.WIDTH * 0.8
-        S_HEIGHT = S_WIDTH
         S_Y = self.Y + self.HEIGHT
 
         # the lcds location,lcd1, splitter 12,13,14
@@ -113,38 +110,38 @@ class RedefineUi(QtGui.QMainWindow):
         '''
         HEIGHT = self.ele_height
         WIDTH = self.ui.frame_1.width()
-        elecar1 = ElevatorCar(1, 'L1', self, direction='stop', ele_name='A', des_exg_list=[], max_mount=13,
+        elecar1 = ElevatorCar(1, 'L1', self, direction='stop', ele_name='A', des_exg_dict={}, max_mount=13,
                               all_ele_status=self.all_ele_status)
         elecar1.setGeometry(self.ui.frame_1.geometry().x(),
                             self.moving_range['A'][1],
                             WIDTH, HEIGHT)
-        elecar2 = ElevatorCar(2, 'L2', self, direction='stop', ele_name='B1', des_exg_list=[], max_mount=13,
+        elecar2 = ElevatorCar(2, 'L2', self, direction='stop', ele_name='B1', des_exg_dict={}, max_mount=13,
                               all_ele_status=self.all_ele_status)
         elecar2.setGeometry(self.ui.frame_2.geometry().x(),
                             self.moving_range['B1'][1],
                             WIDTH, HEIGHT)
 
-        elecar3 = ElevatorCar(3, 'L3', self, direction='stop', ele_name='C1', des_exg_list=[], max_mount=13,
+        elecar3 = ElevatorCar(3, 'L3', self, direction='stop', ele_name='C1', des_exg_dict={}, max_mount=13,
                               all_ele_status=self.all_ele_status)
         elecar3.setGeometry(self.ui.frame_3.geometry().x(),
                             self.moving_range['C1'][1],
                             WIDTH, HEIGHT)
-        elecar4 = ElevatorCar(4, 'L4', self, direction='stop', ele_name='D1', des_exg_list=[], max_mount=13,
+        elecar4 = ElevatorCar(4, 'L4', self, direction='stop', ele_name='D1', des_exg_dict={}, max_mount=13,
                               all_ele_status=self.all_ele_status)
         elecar4.setGeometry(self.ui.frame_4.geometry().x(),
                             self.moving_range['D1'][1],
                             WIDTH, HEIGHT)
-        elecar5 = ElevatorCar(5, 'U1', self, direction='stop', ele_name='B2', des_exg_list=[], max_mount=13,
+        elecar5 = ElevatorCar(5, 'U1', self, direction='stop', ele_name='B2', des_exg_dict={}, max_mount=13,
                               all_ele_status=self.all_ele_status)
         elecar5.setGeometry(self.ui.frame_2.geometry().x(),
                             self.moving_range['B2'][1],
                             WIDTH, HEIGHT)
-        elecar6 = ElevatorCar(6, 'U2', self, direction='stop', ele_name='C2', des_exg_list=[], max_mount=13,
+        elecar6 = ElevatorCar(6, 'U2', self, direction='stop', ele_name='C2', des_exg_dict={}, max_mount=13,
                               all_ele_status=self.all_ele_status)
         elecar6.setGeometry(self.ui.frame_3.geometry().x(),
                             self.moving_range['C2'][1],
                             WIDTH, HEIGHT)
-        elecar7 = ElevatorCar(7, 'U3', self, direction='stop', ele_name='D2', des_exg_list=[], max_mount=13,
+        elecar7 = ElevatorCar(7, 'U3', self, direction='stop', ele_name='D2', des_exg_dict={}, max_mount=13,
                               all_ele_status=self.all_ele_status)
         elecar7.setGeometry(self.ui.frame_4.geometry().x(),
                             self.moving_range['D2'][1],
@@ -171,12 +168,27 @@ class RedefineUi(QtGui.QMainWindow):
         self.ui.D_bound.setGeometry(0, self.floor2y(45) - self.margin,
                                     self.WIDTH, 1)
 
+    def _initInput(self):
+        self.ui.src_slider.valueChanged.connect(self._read_floor_from_slider)
+        self.ui.des_slider.valueChanged.connect(self._read_floor_from_slider)
+        self.ui.amount_slider.valueChanged.connect(self._read_floor_from_slider)
+
+        self.ui.src_floor_box.textChanged.connect(self._adjust_slider)
+        self.ui.des_floor_box.textChanged.connect(self._adjust_slider)
+        self.ui.amount_box.textChanged.connect(self._adjust_slider)
+
+        self.ui.src_floor_box.setAlignment(QtCore.Qt.AlignCenter)
+        self.ui.des_floor_box.setAlignment(QtCore.Qt.AlignCenter)
+        self.ui.amount_box.setAlignment(QtCore.Qt.AlignCenter)
+
     def _read_floor_from_slider(self, floor):
         sender = self.sender()
         if sender.objectName() == 'src_slider':
             self.ui.src_floor_box.setHtml('<center><font color="#FFFFFF">{}</font></center>'.format(floor))
         elif sender.objectName() == 'des_slider':
             self.ui.des_floor_box.setHtml('<center><font color="#FFFFFF">{}</font></center>'.format(floor))
+        elif sender.objectName() == 'amount_slider':
+            self.ui.amount_box.setHtml('<center><font color="#FFFFFF">{}</font></center>'.format(floor))
 
     def _adjust_slider(self):
         '''
@@ -204,6 +216,15 @@ class RedefineUi(QtGui.QMainWindow):
             elif self._check_input('b') == 0:
                 pass
 
+        elif sender.objectName() == 'amount_box':
+            if self._check_input('c') == 1:
+                self.ui.amount_slider.setValue(int(self.ui.amount_box.toPlainText()))
+                self.ui.amount_box.moveCursor(QtGui.QTextCursor.Right)
+            elif self._check_input('c') == 2:
+                self.ui.amount_box.clear()
+            elif self._check_input('c') == 0:
+                pass
+
     def _load_qss(self):
         '''
         the path './style_7_8.qss' won't work, should use the following path,
@@ -217,28 +238,42 @@ class RedefineUi(QtGui.QMainWindow):
             qss = f.read()
         self.setStyleSheet(qss)
 
-    def _check_input(self, floor_box):
+    def _check_input(self, box):
         msg = QtGui.QMessageBox()
         msg.setIcon(QtGui.QMessageBox.Information)
         msg.setStandardButtons(QtGui.QMessageBox.Ok | QtGui.QMessageBox.Cancel)
         try:
-            if floor_box == 'a':
-                content = self.ui.src_floor_box.toPlainText()
-                if len(content) == 0:
-                    return 0
+            if box != 'c':
+                if box == 'a':
+                    content = self.ui.src_floor_box.toPlainText()
+                    if len(content) == 0:
+                        return 0
 
-            elif floor_box == 'b':
-                content = self.ui.des_floor_box.toPlainText()
+                elif box == 'b':
+                    content = self.ui.des_floor_box.toPlainText()
+                    if len(content) == 0:
+                        return 0
+                if 0 < int(content) < 61:
+                    return 1
+                else:
+                    msg.setText("输入超出范围[1，60]")
+                    msg.setWindowTitle("范围错误")
+                    # msg.buttonClicked.connect(msgbtn)
+                    msg.exec_()
+                    return 2
+            elif box == 'c':
+                content = self.ui.amount_box.toPlainText()
                 if len(content) == 0:
                     return 0
-            if 0 < int(content) < 61:
-                return 1
-            else:
-                msg.setText("输入超出范围[1，60]")
-                msg.setWindowTitle("范围错误")
-                # msg.buttonClicked.connect(msgbtn)
-                msg.exec_()
-                return 2
+                else:
+                    if 0 < int(content) < 16:
+                        return 1
+                    else:
+                        msg.setText("输入超出范围[1，15]")
+                        msg.setWindowTitle("范围错误")
+                        # msg.buttonClicked.connect(msgbtn)
+                        msg.exec_()
+                        return 2
 
         except ValueError:
             msg.setText("非法字符输入，只接受整数输入")

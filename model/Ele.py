@@ -15,14 +15,18 @@ class ElevatorCar(QtGui.QLabel):
     not_move_signal = pyqtSignal()
     des_signal = pyqtSignal(int)
     obj_signal = pyqtSignal(QObject)
-    phase1_signal = pyqtSignal()  # the signal after one move is done
-    phase2_signal = pyqtSignal()  # the signal after one move is done
+    # phase1_signal = pyqtSignal()  # the signal after one move is done
+    # phase2_signal = pyqtSignal()  # the signal after one move is done
+    amount_sig = pyqtSignal()
+    execute_id_sig = pyqtSignal(str, str)
 
+    # full_sig = pyqtSignal()
     # step1_1_signal = pyqtSignal()  # the signal after one step1_1 is done
     # step1_2_signal = pyqtSignal()  # the signal after one step1_2 is done,
     # the step1_2 is specificly to the ele in the latter place of a route that
     # needs ele exchange
-    def __init__(self, order, location, parent=None, direction='stop', ele_name=None, des_exg_list=[], max_amount=13,
+
+    def __init__(self, order, location, parent=None, direction='stop', ele_name=None, des_exg_dict={}, max_amount=13,
                  all_ele_status={},
                  **kwargs):
         super(ElevatorCar, self).__init__(parent)
@@ -30,11 +34,17 @@ class ElevatorCar(QtGui.QLabel):
         self.ele_name = ele_name
         self.direction = direction
         self.max_amount = max_amount  # the maxium people a ele can hold
-        self.des_exg_list = des_exg_list  # a list storing the destinations of passengers
+        self.des_exg_dict = des_exg_dict  # a list storing the destinations of passengers
+        self.des_exg_dict[
+            'up'] = []  # the info inside is a tuple containing (des, exg_ele(if not then 'N'), is_terminal(to control the number of people in the ele), amount(how many people get in), route_finished(whether the end of a route), route_id(identify the route))
+        self.des_exg_dict['down'] = []
         self.location = location  # the location would be sorted as 4
         self.current_amount = 0  # the amount of people in ele
         # self.exg_ele_list = []  # corresponding to the des list
         self.all_ele_status = all_ele_status
+        self.is_first = 'None'
+        self.running_set = ''
+        self.des1_des2_diff = -1  # this variable indicates wheather the route should stay priority, if it is less than 0, then it is normal, otherwise it represents until which floor this can be broken
         self.kwargs = kwargs
         self.height = self.geometry().height()
         self.move_worker = EleWorker(self, speed=0.08, move_step=1,
@@ -44,7 +54,7 @@ class ElevatorCar(QtGui.QLabel):
     def _init_appearance(self):
         self.setFrameShape(QtGui.QFrame.Box)
         self.setFrameShadow(QtGui.QFrame.Sunken)
-        self.setText(self.ele_name)
+        self.setText(self.ele_name + '  ' + str(self.current_amount))
         self.setAlignment(QtCore.Qt.AlignCenter)
         self.set_style()
 
@@ -85,17 +95,67 @@ class ElevatorCar(QtGui.QLabel):
         in reality this should be accessed by the sensor
         consider one person at a time by default
         '''
-        self.current_amount += amount
+        if self.current_amount + amount - 13 > 0:
+            actual_in = self.max_amount - self.current_amount
+            self.current_amount = 13
+        else:
+            self.current_amount += amount
+            actual_in = -1
+        self.amount_sig.emit()
+        return actual_in  # the return value is ensure the src_des pair got the right amount of people(in and out)
 
-    def update_des_exg_list(self):
-        # make sure there is no duplicate des, the exg des would replace the normal one
-        des_list = [a[0] for a in self.des_exg_list]
+    def show_amount(self):
+        self.setText('{}  {}'.format(self.ele_name, self.current_amount))
+
+    def full_alert(self):
+        if self.max_amount * 0.8 <= self.current_amount < self.max_amount:
+            self.setStyleSheet('background: #FFFF99')
+        elif self.current_amount >= self.max_amount:
+            self.setStyleSheet('background: #FF6666')
+        elif 1 <= self.current_amount < self.max_amount * 0.8:
+            self.setStyleSheet('background: #6699CC')
+        else:
+            self.set_style()
+
+    def adjust_amount_des(self, route_id, adj_amount):
+        # if only adj_mount people get in the ele due to no spare space, then change the amount of its another corresponding des to the actual number, if no one came in, then the latter corresponding des is dropped
+        for dirc in ['up', 'down']:
+            for des in self.des_exg_dict[dirc]:
+                if des[4] == route_id:
+                    des[3] = adj_amount
+                    if adj_amount == 0:
+                        self.des_exg_dict[dirc].remove(des)
+                    break
+
+    # def cancel_des(self):
+    #     nearest_Y = [des[0] for des in self.des_exg_dict[self.direction] if des[2] == 'Y']
+    #     nearest_des = self.des_exg_dict[self.direction][-1]
+    #     if self.direction == 'up':
+    #         if nearest_Y[-1] > nearest_des[0]:
+    #             self.des_exg_dict[self.direction].pop()
+    #     elif self.direction == 'down':
+    #         if nearest_Y[-1] < nearest_des[0]:
+    #             self.des_exg_dict[self.direction].pop()
+
+    @staticmethod
+    def sort_drop_des(des_exg_list, direction):
+        if direction == 'down':
+            des_exg_list = sorted(des_exg_list, key=lambda x: x[0])
+        else:
+            des_exg_list = sorted(des_exg_list, key=lambda x: x[0], reverse=True)
+        des_list = [a[0] for a in des_exg_list]
         seen = set()
         seen_add = seen.add
         dup_idx = [idx for idx, item in enumerate(des_list) if item in seen or seen_add(item)]
         for idx in dup_idx:
-            if self.des_exg_list[idx][1] == 'N':
-                self.des_exg_list.pop(idx)
+            if des_exg_list[idx][1] == 'N':
+                des_exg_list.pop(idx)
+        return des_exg_list
+
+    def update_des_exg_dict(self):
+        # make sure there is no duplicate des, the exg des would replace the normal one(if both exsit), and sort the up and down set
+        for direction in ['up', 'down']:
+            self.des_exg_dict[direction] = self.sort_drop_des(self.des_exg_dict[direction], direction)
 
     def _calculateFloor(self, fr_num, f_height, loc_y):
         # ############### this method should changed cause it is too dependent
@@ -137,20 +197,31 @@ class EleWorker(QtCore.QObject):
         :return:
         '''
         while True:
-            if len(self.subject.des_exg_list) == 0:
+            if (len(self.subject.des_exg_dict['up']) == 0) & (len(self.subject.des_exg_dict['down']) == 0):
+                # print('the running set of {} is {}'.format(self.subject.ele_name, self.subject.running_set))
                 self.subject.direction = 'stop'
+                self.subject.is_first = 'None'  # if both set are empty, reset the flag
                 time.sleep(5)
                 # print('the status of ele are {}'.format(self.all_ele_status))
             else:
-                des_exg = self.subject.des_exg_list[-1]
+                if self.subject.is_first != 'None':
+                    self.subject.running_set = self.subject.is_first
+                    self.subject.is_first = 'None'
+                # print('the running set of {} is {}'.format(self.subject.ele_name, self.subject.running_set))
+                des_exg = self.subject.des_exg_dict[self.subject.running_set][-1]
                 des = des_exg[0]
                 exg_ele = des_exg[1]
                 is_terminal = des_exg[2]
+                amount = des_exg[3]
+                route_id = des_exg[4]
+                route_finished = des_exg[5]
                 des_y = self.subject.ele_floor2y(des)
                 # print('the des popped is {}'.format(des))
                 # print('the exg_ele popped is {}'.format(exg_ele))
                 current_loc = self.subject.geometry().y()
                 x = self.subject.geometry().x()
+                if route_finished == 'S':
+                    self.subject.execute_id_sig.emit(route_id, 'started')
                 # print('current loc of {} is {}, that is {} floor, nearest des is {}'.format(self.subject.ele_name, current_loc, self.subject.getLocation(),des))
                 if current_loc > des_y:
                     self.subject.direction = 'up'
@@ -166,20 +237,44 @@ class EleWorker(QtCore.QObject):
                     # print(current_loc)
                     self.subject.obj_signal.emit(self.subject)  # this signal connect the led and the all_ele_status
                 # print('one des done, stay 1 seconds')
-                self.subject.direction = 'stop'
+                # self.subject.direction = 'stop'
+
                 if exg_ele != 'N':
                     # if there should change the ele, then wait until the exg ele has came
                     while self.all_ele_status[exg_ele] != des:
-                        time.sleep(2)
+                        time.sleep(1.5)
+                    time.sleep(1.5)  # # the wait here is important, making sure that one of the two while loop will end
+
                 else:
                     time.sleep(1)
+
                 # print('the des_exg_list of {} before popped is {}'.format(self.subject.ele_name, self.subject.des_exg_list))
                 if is_terminal == 'Y':
-                    self.subject.change_amount(-1)  # update the amount of people in the ele
-                self.subject.des_exg_list.pop()  # delete the complete des until done, in case that Dcd won't be wrongly calculated
-                # print('the des_exg_list of {} after popped is {}'.format(self.subject.ele_name, self.subject.des_exg_list))
-                # time.sleep(1)
-                print('the amount of people in {} is {}'.format(self.subject.ele_name, self.subject.current_amount))
+                    # print('the amount of people in {} before is {}'.format(self.subject.ele_name, self.subject.current_amount))
+                    actual_in = self.subject.change_amount(-amount)  # update the amount of people in the ele
+                    # print('the amount of people in {} after is {}'.format(self.subject.ele_name, self.subject.current_amount))
+                elif is_terminal == 'N':
+                    # if not terminal, then some people get in
+                    actual_in = self.subject.change_amount(amount)
+                    if actual_in != -1:
+                        # change the amount in the des_list with same route_id to the right number, drop the des if actual_in is 0.
+                        print('the actual_in is {}'.format(actual_in))
+                        self.subject.adjust_amount(route_id, actual_in)
+                if route_finished == 'E':
+                    self.subject.execute_id_sig.emit(route_id, 'finished')
 
-            if int(time.time()) % 100 == 0:
-                print('movement of {} is done, no des in the list'.format(self.subject.ele_name))
+                self.subject.des_exg_dict[
+                    self.subject.running_set].pop()  # delete the complete des until done, in case that Dcd won't be wrongly calculated
+                # print('the des_exg_list of {} after popped is {}'.format(self.subject.ele_name, self.subject.des_exg_list))
+                if len(self.subject.des_exg_dict[
+                           self.subject.running_set]) == 0:  # when a direction set is completely done, switch to another one
+                    # print('before switch the running_set of {} is {}'.format(self.subject.ele_name, self.subject.running_set))
+                    self.subject.running_set = 'down' if self.subject.running_set == 'up' else 'up'
+                    # print('the des_exg_dict of {} is {},\nafter switch the running_set is {}'.format(self.subject.ele_name, self.subject.des_exg_dict, self.subject.running_set))
+                    # time.sleep(1)
+                    # print('the amount of people in {} after moving is {}'.format(self.subject.ele_name, self.subject.current_amount))
+                    # reset the des1_des2_diff if the des is arrived
+                if des == self.subject.des1_des2_diff:
+                    self.subject.des1_des2_diff = -1
+                    # if int(time.time()) % 100 == 0:
+                    #     print('movement of {} is done, no des in the list'.format(self.subject.ele_name))
