@@ -4,7 +4,7 @@ import random
 import re
 import time
 
-from PyQt4.QtCore import QObject
+from PyQt4.QtCore import QObject, QThread
 
 from model.RedefineUi import RedefineUi
 from model.schedule import Schedule
@@ -18,7 +18,7 @@ class MainWindow(RedefineUi):
         # the demo of the schedule
         # the init_variables
 
-        # print('the main thread in MainWindow is\n{}'.format(QThread.currentThread()))
+        print('the main thread in MainWindow is\n{}'.format(QThread.currentThread()))
         self.pass_info = ''
         self.pass_info_dict = {}
         self.pass_count = 0
@@ -30,10 +30,22 @@ class MainWindow(RedefineUi):
         self.base_request_info = ''
         self.request_count = 0
         self.request_list = []
-        self.schedulers = [ScheduleWorker(self.elecars) for i in range(4)]
-        # self.scheduler = Schedule(self.elecars)
+
+        # self.schedulers = [ScheduleWorker(self.elecars) for i in range(4)]
+        self.schedule_threads = [QThread() for i in range(4)]
+        # self.schedulers = [Schedule(self.elecars) for i in range(4)]
+        self.schedule_workers = [Schedule(self.elecars) for i in range(4)]
+        # ================ this is thread test =====================
+        self.test_thread = QThread()
+        print()
+        self.ui.thread_button.clicked.connect(self.thread_test)
+        # print('the test thread in MainWindow is\n{}'.format(self.test_thread))
+        # ==========================================================
+
+
         # self.schedule_threads = [QThread() for i in range(4)]
-        # print('all thread are \n{}\n{}\n{}\n{}'.format(self.schedule_threads[0], self.schedule_threads[1], self.schedule_threads[2], self.schedule_threads[3]))
+        print('all thread are \n{}\n{}\n{}\n{}'.format(self.schedule_threads[0], self.schedule_threads[1],
+                                                       self.schedule_threads[2], self.schedule_threads[3]))
         # ##################### what need to be done here ################################################################################
         # 1. once the confirm is pressed, the src and des should be fetched and the corresponding infomation should be showed in the board
         # 2. The exchange information should be kept
@@ -93,30 +105,6 @@ class MainWindow(RedefineUi):
         '''
         fetch the src, des, and use schedule module to calculate the route, then emit the result when calculating is done
         '''
-        # print('start getting result')
-        # def update_ele_in_func(route):
-        #     self.update_ele_des(route, amount)
-        # idle_thread_idx = [idx for idx, thread in enumerate(self.schedule_threads) if not thread.isRunning()]
-
-        # print('the idle threads are {}'.format(idle_thread_idx))
-        # idx = random.choice(idle_thread_idx)
-        # # while idx == 0:
-        # #     idx = random.choice(idle_thread_idx)
-        # worker = ScheduleWorker(self.scheduler)
-        # worker.moveToThread(self.schedule_threads[idx])
-        # print('thread[{}] is {}'.format(idx, self.schedule_threads[idx]))
-        # # self.schedule_threads[idx] = QThread()
-        # self.schedule_threads[idx].started.connect(lambda: print('the schedule thread starts'))
-        # self.schedule_threads[idx].finished.connect(lambda: print('the schedule thread done'))
-
-        # self.schedule_threads[idx].started.connect(lambda: worker.run_schedule(src, des))
-        # self.schedule_threads[idx].start()
-        # # print('the worker is {}'.format(worker))
-        # worker.result_sig.connect(self.show_schedule_info)
-        # worker.result_sig.connect(update_ele_in_func)
-        # worker.result_sig.connect(self.schedule_threads[idx].exit)
-
-        # #===========================another way======================
         print('start getting result')
 
         def update_ele_in_func(route):
@@ -124,25 +112,63 @@ class MainWindow(RedefineUi):
 
         def show_schedule_info_in_func(route):
             self.show_schedule_info(route, route_id)
-        idle_thread_idx = [idx for idx, thread in enumerate(self.schedule_threads) if not thread.isRunning()]
 
-        # print('the idle threads are {}'.format(idle_thread_idx))
-        idx = random.choice(idle_thread_idx)
+        idle_thread_idx = [idx for idx, thread in enumerate(self.schedule_threads) if not thread.isRunning()]
+        idle_worker_idx = [idx for idx, worker in enumerate(self.schedule_workers) if not worker.isRunning]
+
+        print('the idle threads are {}'.format(idle_thread_idx))
+        print('the idle workers are {}'.format(idle_worker_idx))
+        idx1 = random.choice(idle_thread_idx)
+        idx2 = random.choice(idle_worker_idx)
         # while idx == 0:
         #     idx = random.choice(idle_thread_idx)
-        scheduler = self.schedulers[random.choice([0, 1, 2, 3])]
-        scheduler.worker.moveToThread(self.schedule_threads[idx])
-        # print('thread[{}] is {}'.format(idx, self.schedule_threads[idx]))
-        # self.schedule_threads[idx] = QThread()
-        self.schedule_threads[idx].started.connect(lambda: print('the schedule thread starts'))
-        self.schedule_threads[idx].finished.connect(lambda: print('the schedule thread done'))
+        thread_ = self.schedule_threads[idx1]
+        worker = self.schedule_workers[idx2]
+        # worker = ScheduleWorker(self.scheduler)
+        worker.moveToThread(thread_)
+        # try:
+        #     worker.result_sig.disconnect()
+        # except TypeError:
+        #     pass
+        # print('thread[{}] is {}'.format(idx, thread_))
+        # thread_ = QThread()
+        thread_.started.connect(lambda: print('the schedule thread starts'))
+        thread_.finished.connect(lambda: print('the schedule thread done'))
 
-        self.schedule_threads[idx].started.connect(lambda: scheduler.worker.run_schedule(src, des))
-        self.schedule_threads[idx].start()
+        thread_.started.connect(lambda: worker.run_commands(src, des))
+        thread_.start()
         # print('the worker is {}'.format(worker))
-        scheduler.worker.result_sig.connect(show_schedule_info_in_func)
-        scheduler.worker.result_sig.connect(update_ele_in_func)
-        scheduler.worker.result_sig.connect(self.schedule_threads[idx].exit)
+        worker.result_sig.connect(show_schedule_info_in_func)
+        worker.result_sig.connect(update_ele_in_func)
+        worker.result_sig.connect(thread_.exit)
+
+        # #===========================another way======================
+        print('start getting result')
+
+        # def update_ele_in_func(route):
+        #     self.update_ele_des(route, route_id, amount)
+        #
+        # def show_schedule_info_in_func(route):
+        #     self.show_schedule_info(route, route_id)
+        # idle_thread_idx = [idx for idx, thread in enumerate(self.schedule_threads) if not thread.isRunning()]
+        #
+        # # print('the idle threads are {}'.format(idle_thread_idx))
+        # idx = random.choice(idle_thread_idx)
+        # # while idx == 0:
+        # #     idx = random.choice(idle_thread_idx)
+        # scheduler = self.schedulers[random.choice([0, 1, 2, 3])]
+        # scheduler.worker.moveToThread(self.schedule_threads[idx])
+        # # print('thread[{}] is {}'.format(idx, self.schedule_threads[idx]))
+        # # self.schedule_threads[idx] = QThread()
+        # self.schedule_threads[idx].started.connect(lambda: print('the schedule thread starts'))
+        # self.schedule_threads[idx].finished.connect(lambda: print('the schedule thread done'))
+        #
+        # self.schedule_threads[idx].started.connect(lambda: scheduler.worker.run_schedule(src, des))
+        # self.schedule_threads[idx].start()
+        # # print('the worker is {}'.format(worker))
+        # scheduler.worker.result_sig.connect(show_schedule_info_in_func)
+        # scheduler.worker.result_sig.connect(update_ele_in_func)
+        # scheduler.worker.result_sig.connect(self.schedule_threads[idx].exit)
 
     def show_passenger_info(self):
         for request in self.request_list:
@@ -207,7 +233,7 @@ class MainWindow(RedefineUi):
         :param status:
         :return:
         '''
-        print('changing font color, route_id is {} status is {}'.format(route_id, status))
+        # print('changing font color, route_id is {} status is {}'.format(route_id, status))
         if status == 'started':
             self.pass_info_dict[route_id][1] = re.sub('#.{6}', exc, self.pass_info_dict[route_id][1])
             self.sche_info_dict[route_id][1] = re.sub('#.{6}', exc, self.sche_info_dict[route_id][1])
@@ -297,7 +323,7 @@ class MainWindow(RedefineUi):
     @staticmethod
     def hash_route_id(src, des, amount):
         route_id = (''.join(str(time.time()).split('.')) + str(src) + str(des) + str(amount))[-12:]
-        print(src, des, amount, route_id)
+        # print(type(route_id))
         return route_id
 
     def clear(self):
@@ -326,20 +352,55 @@ class MainWindow(RedefineUi):
             i.setGeometry(i.geometry().x(), random_y, i.geometry().width(), i.geometry().height())
             self.showFloor(i)
 
+    def thread_test(self):
+        print('testing thread...')
+        # self.test_worker = Test_obj()
+        # test_worker = self.schedule_workers[-1]
+        # test_worker.moveToThread(self.test_thread)
+        self.schedule_workers[-1].moveToThread(self.schedule_threads[-1])
+        self.schedule_threads[-1].start()
+        # self.test_thread.started.connect(test_worker.test)
+        self.schedule_threads[-1].started.connect(self.schedule_workers[-1].test)
+        # ### date: 2017-8-21 8:21 the test is passed
 
-class ScheduleWorker(QObject):
-    # result_sig = pyqtSignal(list)
 
-    # def __init__(self, scheduler):
-    #     super(ScheduleWorker, self).__init__()
-    #     self.scheduler = scheduler
-    def __init__(self, elecars):
-        super(ScheduleWorker, self).__init__()
-        self.elecars = elecars
-        self.worker = Schedule(self.elecars)
+# class ScheduleWorker(QObject):
+#     result_sig = pyqtSignal(list)
+#     # def __init__(self, scheduler):
+#     #     super(ScheduleWorker, self).__init__()
+#     #     self.scheduler = scheduler
+#     # def __init__(self, elecars):
+#     #     super(ScheduleWorker, self).__init__()
+#     #     self.elecars = elecars
+#     #     self.worker = Schedule(self.elecars)
+#
+#     def __init__(self, scheduler):
+#         super(ScheduleWorker, self).__init__()
+#         self.scheduler = scheduler
+#         self.isRunning = False
+#
+#     def run_schedule(self, src, des):
+#         self.isRunning = True
+#         print('seeking result..........from {} to {}'.format(src, des))
+#         schedule_result = self.scheduler.commands(src, des)
+#         # print('the result calculated is \n{}'.format(schedule_result))
+#         self.result_sig.emit(schedule_result)
+#         self.isRunning = False
+#
+#     # def test(self):
+#     #     print('inside test')
+#     #     while True:
+#     #         print('inside infinite loop...')
 
-        # def run_schedule(self, src, des):
-        #     print('seeking result..........from {} to {}'.format(src, des))
-        #     schedule_result = self.scheduler.commands(src, des)
-        #     # print('the result calculated is \n{}'.format(schedule_result))
-        #     self.result_sig.emit(schedule_result)
+
+
+class Test_obj(QObject):
+    def __init__(self, *args, **kwargs):
+        super(Test_obj, self).__init__()
+        self.args = args
+        self.kwargs = kwargs
+
+    def test(self):
+        while True:
+            time.sleep(1)
+            print('inside a infinite loop')

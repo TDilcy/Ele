@@ -15,6 +15,7 @@ class Schedule(QObject):
     def __init__(self, eles):
         super(Schedule, self).__init__()
         self.eles = eles
+        self.isRunning = False
         # should the AVAI_MATRIX be changed
         # self.AVAI_MATRIX = [[('A', 'B1', 'C1', 'D1'), ('A', 'C1', 'D1'), ('A', 'C1', 'D1'), ('A', 'C1', 'D1')],
         #                     [('A', 'C1', 'D1'), ('A', 'B2', 'C1', 'D1'), ('A', 'B2', 'D1'), ('A', 'B2', 'D1')],
@@ -160,6 +161,7 @@ class Schedule(QObject):
             # print('exchange direction is {}'.format(direction))
             # ====debug code===========
             # print('candidate is {}'.format(candidate))
+            ori_candidate = candidate
             candidate = self.adjust_set(candidate, src, des)
             candidate_eles = [self.eles[self.ELE_DICT[i]] for i in candidate]
 
@@ -167,27 +169,30 @@ class Schedule(QObject):
             available_eles = [ele for ele in candidate_eles if (ele.direction == direction) | (ele.direction == 'stop')]
             print('available eles for exg are {}'.format([ele.ele_name for ele in available_eles]))
             if len(available_eles) == 0:
-                if self.eles[self.ELE_DICT[cur_ele]] == temp_flr:
-                    print(
-                        'There arrives at the {} floor, there is no available eles for {}, please go out call the ele again'.format(
-                            temp_flr, des))
-                else:
-                    # for i in range(100000000):
-                    #     print('infinite loop')
-                    time.sleep(0.01)
-                    # QtGui.QApplication.processEvents()
-                    # print('in the loop of searching available eles')
-                    # # whether the location obtained could be the updated?
-                    # # here is found to slow down the main UI, should to be handled......
-                    # # ==========debug code=============
-                    # # print('candidates are {}'.format(candidate))
-                    # # =================================
-                    self._get_chg(cur_ele, src, des, candidate, temp_flr, direction=direction)
+                for each_ele in candidate_eles:
+                    each_ele.amount_sig.connect(
+                        self._get_chg(cur_ele, src, des, ori_candidate, temp_flr, direction=None))
+                    # if self.eles[self.ELE_DICT[cur_ele]] == temp_flr:
+                    #     print('There arrives at the {} floor, there is no available eles for {}, please go out call the ele again'.format(temp_flr, des))
+                    # else:
+                    #     time.sleep(1)
+                    #     self._get_chg(cur_ele, src, des, candidate, temp_flr, direction=direction)
+                    # while True:
+                    #     time.sleep(1)
+                    #     print('inside the loop of seeking exg ele...')
+                    # time.sleep(1)
+                    # self._get_chg(cur_ele, src, des, ori_candidate, temp_flr, direction=direction)
             else:
                 temp_status = self._get_y_status([ele.ele_name for ele in available_eles])
                 chg_ele = self._nearest_ele(temp_status, temp_flr)
-                print('change ele is {}'.format(chg_ele))
+                print('exchange ele is {}'.format(chg_ele))
                 return [cur_ele, temp_flr, chg_ele, des]
+            try:
+                for each_ele in candidate_eles:
+                    each_ele.amount_sig.disconnect(
+                        self._get_chg(cur_ele, src, des, ori_candidate, temp_flr, direction=None))
+            except:
+                pass
         else:
             temp_status = self._get_y_status(candidate)
             chg_ele = self._nearest_ele(temp_status, temp_flr)
@@ -223,7 +228,8 @@ class Schedule(QObject):
                     print('the ele returned is {}'.format(ele_picked))
                     return ele_picked
                 else:
-                    time.sleep(1)
+                    print('up_set and static set are both empty, restarting...')
+                    # time.sleep(1)
                     self.commands(src, des)
             else:
                 # print('the up_set is {}'.format(up_set))
@@ -243,7 +249,8 @@ class Schedule(QObject):
                     # print('the ele returned is {}'.format(ele_picked))
                     return ele_picked
                 else:
-                    time.sleep(1)
+                    print('down_set and static set are both empty, restarting...')
+                    # time.sleep(1)
                     self.commands(src, des)
             else:
                 # print('the down_set is {}'.format(down_set))
@@ -256,10 +263,13 @@ class Schedule(QObject):
 
         # # if Dcc_Dcd is empty, then check static set
         if len(Dcc_Dcd) == 0:
+
             if len(static_set) != 0:
+                print('Dcc_Dcd is empty, choosing from static set')
                 ele_picked = self._choose_from_static(static_set, src)
                 return ele_picked
             else:
+                print('Dcc_Dcd and static set are both empty, restarting...')
                 time.sleep(1)
                 self.commands(src, des)
         else:
@@ -279,7 +289,7 @@ class Schedule(QObject):
                 return ele_picked
             else:
                 time.sleep(1)
-                print('no proper result, back to the beginning')
+                print('no proper result, restarting')
                 self.commands(src, des)
 
     def _whether_change_coms(self, ele_picked, src, des):
@@ -370,9 +380,22 @@ class Schedule(QObject):
         else:
             return [src, ele_picked, des]
 
-    def run_schedule(self, src, des):
-        route = self.commands(src, des)
-        self.result_sig.emit(route)
+    # def run_schedule(self, src, des):
+    #     route = self.commands(src, des)
+    #     self.result_sig.emit(route)
+
+    def run_commands(self, src, des):
+        self.isRunning = True
+        print('seeking result..........from {} to {}'.format(src, des))
+        schedule_result = self.commands(src, des)
+        # print('the result calculated is \n{}'.format(schedule_result))
+        self.result_sig.emit(schedule_result)
+        self.isRunning = False
+
+    def test(self):
+        while True:
+            time.sleep(3)
+            print('inside infinite loop of scheduler...')
 
 
 if __name__ == '__main__':
