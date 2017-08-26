@@ -3,8 +3,9 @@ import copy
 import random
 import re
 import time
+from functools import reduce
 
-from PyQt4.QtCore import QObject, QThread
+from PyQt4.QtCore import QThread
 
 from model.RedefineUi import RedefineUi
 from model.schedule import Schedule
@@ -30,22 +31,23 @@ class MainWindow(RedefineUi):
         self.base_request_info = ''
         self.request_count = 0
         self.request_list = []
+        self.ord_route_id_dict = {}
 
         # self.schedulers = [ScheduleWorker(self.elecars) for i in range(4)]
-        self.schedule_threads = [QThread() for i in range(4)]
+        self.schedule_threads = [QThread() for i in range(11)][1:]  # drop the first one
         # self.schedulers = [Schedule(self.elecars) for i in range(4)]
-        self.schedule_workers = [Schedule(self.elecars) for i in range(4)]
+        self.schedule_workers = [Schedule(self.elecars) for i in range(10)]
+        self.init_thread_worker_pair()
         # ================ this is thread test =====================
         self.test_thread = QThread()
-        print()
         self.ui.thread_button.clicked.connect(self.thread_test)
         # print('the test thread in MainWindow is\n{}'.format(self.test_thread))
         # ==========================================================
 
 
         # self.schedule_threads = [QThread() for i in range(4)]
-        print('all thread are \n{}\n{}\n{}\n{}'.format(self.schedule_threads[0], self.schedule_threads[1],
-                                                       self.schedule_threads[2], self.schedule_threads[3]))
+        # print('all thread are \n{}\n{}\n{}\n{}'.format(self.schedule_threads[0], self.schedule_threads[1],
+        #                                                self.schedule_threads[2], self.schedule_threads[3]))
         # ##################### what need to be done here ################################################################################
         # 1. once the confirm is pressed, the src and des should be fetched and the corresponding infomation should be showed in the board
         # 2. The exchange information should be kept
@@ -101,6 +103,7 @@ class MainWindow(RedefineUi):
             # print('request is {}'.format(request))
             self.get_single_result(src, des, amount, route_id)
 
+
     def get_single_result(self, src, des, amount, route_id):
         '''
         fetch the src, des, and use schedule module to calculate the route, then emit the result when calculating is done
@@ -113,29 +116,38 @@ class MainWindow(RedefineUi):
         def show_schedule_info_in_func(route):
             self.show_schedule_info(route, route_id)
 
-        idle_thread_idx = [idx for idx, thread in enumerate(self.schedule_threads) if not thread.isRunning()]
-        idle_worker_idx = [idx for idx, worker in enumerate(self.schedule_workers) if not worker.isRunning]
-
-        print('the idle threads are {}'.format(idle_thread_idx))
-        print('the idle workers are {}'.format(idle_worker_idx))
-        idx1 = random.choice(idle_thread_idx)
-        idx2 = random.choice(idle_worker_idx)
-        # while idx == 0:
-        #     idx = random.choice(idle_thread_idx)
-        thread_ = self.schedule_threads[idx1]
-        worker = self.schedule_workers[idx2]
+        # print('the running status of threads are {}'.format([t.isR]))
+        # idle_thread_idx = [idx for idx, thread in enumerate(self.schedule_threads) if not thread.isRunning()]
+        # idle_worker_idx = [idx for idx, worker in enumerate(self.schedule_workers) if not worker.isRunning]
+        idle_idx = [i for i in range(10) if
+                    (not self.schedule_threads[i].isRunning()) & (not self.schedule_workers[i].isRunning)]
+        # print('the idle threads are {}'.format(idle_thread_idx))
+        # print('the idle threads are {}'.format(idle_thread_idx))
+        print('the idle worker_threads pair are {}'.format(idle_idx))
+        # idx1 = random.choice(idle_thread_idx)
+        # idx2 = random.choice(idle_worker_idx)
+        idx = random.choice(idle_idx)
+        # while idx1 == 0:
+        #     idx1 = random.choice(idle_thread_idx)
+        print('the chosen thread is {}'.format(idx))
+        thread_ = self.schedule_threads[idx]
+        worker = self.schedule_workers[idx]
+        worker.set_src(src)
+        worker.set_des(des)
+        worker.isRunning = True
+        #####################################
         # worker = ScheduleWorker(self.scheduler)
-        worker.moveToThread(thread_)
+        # worker.moveToThread(thread_)
         # try:
         #     worker.result_sig.disconnect()
         # except TypeError:
         #     pass
         # print('thread[{}] is {}'.format(idx, thread_))
         # thread_ = QThread()
-        thread_.started.connect(lambda: print('the schedule thread starts'))
-        thread_.finished.connect(lambda: print('the schedule thread done'))
-
-        thread_.started.connect(lambda: worker.run_commands(src, des))
+        # thread_.started.connect(lambda: print('the schedule thread starts'))
+        # thread_.finished.connect(lambda: print('the schedule thread done'))
+        #
+        # thread_.started.connect(worker.run_commands)
         thread_.start()
         # print('the worker is {}'.format(worker))
         worker.result_sig.connect(show_schedule_info_in_func)
@@ -143,7 +155,7 @@ class MainWindow(RedefineUi):
         worker.result_sig.connect(thread_.exit)
 
         # #===========================another way======================
-        print('start getting result')
+        # print('start getting result')
 
         # def update_ele_in_func(route):
         #     self.update_ele_des(route, route_id, amount)
@@ -170,35 +182,51 @@ class MainWindow(RedefineUi):
         # scheduler.worker.result_sig.connect(update_ele_in_func)
         # scheduler.worker.result_sig.connect(self.schedule_threads[idx].exit)
 
+    def init_thread_worker_pair(self):
+        '''
+        match the thread and worker in case the "can't move to thread" error is thrown
+        :return:
+        '''
+        for i in range(10):
+            self.schedule_workers[i].moveToThread(self.schedule_threads[i])
+            self.schedule_threads[i].started.connect(lambda: print('the schedule thread starts'))
+            self.schedule_threads[i].finished.connect(lambda: print('the schedule thread done'))
+            self.schedule_threads[i].started.connect(self.schedule_workers[i].run_commands)
+
     def show_passenger_info(self):
         for request in self.request_list:
             self.pass_count += 1
             src = request[0]
+            amount = request[2]
             route_id = request[3]
-            self._setPassinfo_dict(self.pass_count, src, route_id, '乘客呼梯')
+            self.ord_route_id_dict[
+                route_id] = self.pass_count  # this is set to keep the info shown in the pass and sche browser identical
+            self._setPassinfo_dict(self.pass_count, src, amount, route_id, '乘客呼梯')
         # print(self.pass_info)
         self._setPassText()
         self.ui.pass_info_broswer.setHtml(self.pass_info)
         self.request_list = []  # reset the request info here to ensure pass info shown properly
 
-    def _setPassinfo_dict(self, order, src, route_id, info):
+    def _setPassinfo_dict(self, order, src, amount, route_id, info):
         self.pass_info_dict[route_id] = [order,
-                                         '<tr>    <td><font color={color}>{rec}</font></td>  <td><font color={color}>{src}</font></td>  <td><font color={color}>{info_kind}</font></td>   </tr>'.format(
-                                             rec=order, src=src, info_kind=info, color="#000000")]
+                                         '<tr>    <td><font color={color}>{rec}</font></td>  <td><font color={color}>{src}</font></td>  <td><font color={color}>{amount}</font></td>  <td><font color={color}>{info_kind}</font></td>   </tr>'.format(
+                                             rec=order, src=src, amount=amount, info_kind=info, color="#000000")]
 
     def _setPassText(self):
         sorted_route_info = sorted(self.pass_info_dict.values(), key=lambda x: x[0])
         base_pass_info = ''
         for route_info in sorted_route_info:
             base_pass_info += route_info[1]
-        self.pass_info = '<table><tr>    <th>记录</th> <th>楼层</th> <th>信息</th>    </tr>{show_info}</table>'.format(
+        self.pass_info = '<table><tr>    <th>记录</th> <th>楼层</th> <th>人数</th> <th>信息</th>    </tr>{show_info}</table>'.format(
             show_info=base_pass_info)
 
     def show_schedule_info(self, route, route_id):
         # if len(route)==3: then it is [src, ele_picked, des]
         # if len(route)==6: then it is [notice, src, cur_ele, temp_flr, chg_ele, des]
-        self.sche_count += 1
-        self._setSchText_dict(self.sche_count, route, route_id)
+        # self.sche_count += 1
+        sche_count = self.ord_route_id_dict[route_id]
+        print('the schedule count is {} now'.format(sche_count))
+        self._setSchText_dict(sche_count, route, route_id)
         self._setScheText()
         self.ui.sch_info_broswer.setHtml(self.sche_info)
         self._showChgText(route)
@@ -209,7 +237,7 @@ class MainWindow(RedefineUi):
         '''
         if len(route) == 3:
             self.sche_info_dict[route_id] = [order,
-                                             '<tr>    <td><font color={color}>{ord}</font></td>  <td><font color={color}>{src}</font></td>  <td><font color={color}><b>{des}</b>({ele})</font></td>   </tr>'.format(
+                                             '<tr>    <td><font color={color}>{ord}</font></td>  <td><font color={color}>{src}</font></td>  <td><font color={color}>{des}</font></td> <td><font color={color}><b>{des}</b>({ele})</font></td>   </tr>'.format(
                                                  ord=order, src=route[0], des=route[-1], ele=route[1], color='#000000')]
         elif len(route) == 6:
             self.sche_info_dict[route_id] = [order,
@@ -219,10 +247,11 @@ class MainWindow(RedefineUi):
 
     def _setScheText(self):
         sorted_route_info = sorted(self.sche_info_dict.values(), key=lambda x: x[0])
-        base_sche_info = ''
-        for route_info in sorted_route_info:
-            base_sche_info += route_info[1]
-        self.sche_info = '<table><tr>    <th>记录</th> <th>楼层</th> <th>信息</th>    </tr>{show_info}</table>'.format(
+        # base_sche_info = ''
+        # for route_info in sorted_route_info:
+        #     base_sche_info += route_info[1]
+        base_sche_info = reduce(lambda x, y: x + y, [route_info[1] for route_info in sorted_route_info])
+        self.sche_info = '<table><tr>    <th>记录</th> <th>呼梯楼层</th>  <th>目的楼层</th> <th>调度结果</th> </tr>{show_info}</table>'.format(
             show_info=base_sche_info)
 
     def change_info_color(self, route_id, status, exc='#FF9900',
@@ -271,6 +300,7 @@ class MainWindow(RedefineUi):
         update the ele des_exg_dict and the exg_list of chosen ele
         '''
         # print('updating ele status')
+        print('the route obtained is {}'.format(route))
         if len(route) == 3:
             # route is like: [src, ele, des]
             # this condition contains the insert situation
@@ -280,7 +310,6 @@ class MainWindow(RedefineUi):
                             route_finished=['S', 'E'])
             # print('the ele_list of {} is updated to \n{}\nfirst stat is {}'.format(ele.ele_name, ele.des_exg_dict, ele.is_first))
         elif len(route) == 6:
-            print(route)
             # route is like: [notice, src, cur_ele, temp_flr, chg_ele, des]
             ele1 = [ele for ele in self.elecars if ele.ele_name == route[2]][0]
             # ele1's des list here is straight, yet ele2's is a turn back
@@ -357,50 +386,9 @@ class MainWindow(RedefineUi):
         # self.test_worker = Test_obj()
         # test_worker = self.schedule_workers[-1]
         # test_worker.moveToThread(self.test_thread)
+        self.schedule_workers[-1].set_test_src(24)
         self.schedule_workers[-1].moveToThread(self.schedule_threads[-1])
         self.schedule_threads[-1].start()
         # self.test_thread.started.connect(test_worker.test)
         self.schedule_threads[-1].started.connect(self.schedule_workers[-1].test)
         # ### date: 2017-8-21 8:21 the test is passed
-
-
-# class ScheduleWorker(QObject):
-#     result_sig = pyqtSignal(list)
-#     # def __init__(self, scheduler):
-#     #     super(ScheduleWorker, self).__init__()
-#     #     self.scheduler = scheduler
-#     # def __init__(self, elecars):
-#     #     super(ScheduleWorker, self).__init__()
-#     #     self.elecars = elecars
-#     #     self.worker = Schedule(self.elecars)
-#
-#     def __init__(self, scheduler):
-#         super(ScheduleWorker, self).__init__()
-#         self.scheduler = scheduler
-#         self.isRunning = False
-#
-#     def run_schedule(self, src, des):
-#         self.isRunning = True
-#         print('seeking result..........from {} to {}'.format(src, des))
-#         schedule_result = self.scheduler.commands(src, des)
-#         # print('the result calculated is \n{}'.format(schedule_result))
-#         self.result_sig.emit(schedule_result)
-#         self.isRunning = False
-#
-#     # def test(self):
-#     #     print('inside test')
-#     #     while True:
-#     #         print('inside infinite loop...')
-
-
-
-class Test_obj(QObject):
-    def __init__(self, *args, **kwargs):
-        super(Test_obj, self).__init__()
-        self.args = args
-        self.kwargs = kwargs
-
-    def test(self):
-        while True:
-            time.sleep(1)
-            print('inside a infinite loop')

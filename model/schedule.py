@@ -12,9 +12,13 @@ class Schedule(QObject):
     """A class that implements two schedule strategy"""
     # global constant:
     result_sig = pyqtSignal(list)
+
     def __init__(self, eles):
         super(Schedule, self).__init__()
         self.eles = eles
+        self.src = 0
+        self.des = 0
+        self.test_src = 0
         self.isRunning = False
         # should the AVAI_MATRIX be changed
         # self.AVAI_MATRIX = [[('A', 'B1', 'C1', 'D1'), ('A', 'C1', 'D1'), ('A', 'C1', 'D1'), ('A', 'C1', 'D1')],
@@ -29,6 +33,16 @@ class Schedule(QObject):
 
         self.ELE_DICT = {'A': 0, 'B1': 1, 'C1': 2,
                          'D1': 3, 'B2': 4, 'C2': 5, 'D2': 6}
+
+    def set_src(self, src):
+        self.src = src
+        # print('the src of this worker is set as {}'.format(self.src))
+
+    def set_des(self, des):
+        self.des = des
+
+    def set_test_src(self, test_src):
+        self.test_src = test_src
 
     def map_index(self, x):
         if 1 <= x < 16:
@@ -165,34 +179,18 @@ class Schedule(QObject):
             candidate = self.adjust_set(candidate, src, des)
             candidate_eles = [self.eles[self.ELE_DICT[i]] for i in candidate]
 
-            print('candidate_eles are {}'.format(candidate_eles))
+            print('candidate_eles are {}'.format(candidate))
             available_eles = [ele for ele in candidate_eles if (ele.direction == direction) | (ele.direction == 'stop')]
             print('available eles for exg are {}'.format([ele.ele_name for ele in available_eles]))
             if len(available_eles) == 0:
-                for each_ele in candidate_eles:
-                    each_ele.amount_sig.connect(
-                        self._get_chg(cur_ele, src, des, ori_candidate, temp_flr, direction=None))
-                    # if self.eles[self.ELE_DICT[cur_ele]] == temp_flr:
-                    #     print('There arrives at the {} floor, there is no available eles for {}, please go out call the ele again'.format(temp_flr, des))
-                    # else:
-                    #     time.sleep(1)
-                    #     self._get_chg(cur_ele, src, des, candidate, temp_flr, direction=direction)
-                    # while True:
-                    #     time.sleep(1)
-                    #     print('inside the loop of seeking exg ele...')
-                    # time.sleep(1)
-                    # self._get_chg(cur_ele, src, des, ori_candidate, temp_flr, direction=direction)
+                time.sleep(1)
+                print('inside the loop of seeking exg ele...')
+                self._get_chg(cur_ele, src, des, ori_candidate, temp_flr, direction=direction)
             else:
                 temp_status = self._get_y_status([ele.ele_name for ele in available_eles])
                 chg_ele = self._nearest_ele(temp_status, temp_flr)
                 print('exchange ele is {}'.format(chg_ele))
                 return [cur_ele, temp_flr, chg_ele, des]
-            try:
-                for each_ele in candidate_eles:
-                    each_ele.amount_sig.disconnect(
-                        self._get_chg(cur_ele, src, des, ori_candidate, temp_flr, direction=None))
-            except:
-                pass
         else:
             temp_status = self._get_y_status(candidate)
             chg_ele = self._nearest_ele(temp_status, temp_flr)
@@ -384,18 +382,19 @@ class Schedule(QObject):
     #     route = self.commands(src, des)
     #     self.result_sig.emit(route)
 
-    def run_commands(self, src, des):
-        self.isRunning = True
-        print('seeking result..........from {} to {}'.format(src, des))
-        schedule_result = self.commands(src, des)
+    def run_commands(self):
+        # self.isRunning = True
+        print('seeking result..........from {} to {}'.format(self.src, self.des))
+        schedule_result = self.commands(self.src, self.des)
         # print('the result calculated is \n{}'.format(schedule_result))
         self.result_sig.emit(schedule_result)
+        print('the result_sig is emitted out.................')
         self.isRunning = False
 
     def test(self):
         while True:
             time.sleep(3)
-            print('inside infinite loop of scheduler...')
+            print('inside infinite loop of scheduler...{}'.format(self.test_src))
 
 
 if __name__ == '__main__':
