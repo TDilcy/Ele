@@ -56,7 +56,7 @@ class RedefineUi(QtGui.QMainWindow):
 
         self.threads = [QtCore.QThread() for i in range(len(self.elecars))]
         # self.schedule_threads = [QtCore.QThread() for i in range(4)]
-        print('the main thread in RedefineUi is\n{}'.format(QtCore.QThread.currentThread()))
+        # print('the main thread in RedefineUi is\n{}'.format(QtCore.QThread.currentThread()))
         # print('the threads for ele are:\n{}\n{}\n{}\n{}\n{}\n{}\n{}'.format(self.threads[0], self.threads[1],
         #                                                                     self.threads[2], self.threads[3],
         #                                                                     self.threads[4], self.threads[5],

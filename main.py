@@ -9,5 +9,6 @@ from model.MainWindow import MainWindow
 if __name__ == '__main__':
     app = QtGui.QApplication(sys.argv)
     window = MainWindow()
+    # print('the main thread loaded in main is\n{}'.format(QThread.currentThread()))
     window.show()
     sys.exit(app.exec_())

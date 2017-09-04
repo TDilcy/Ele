@@ -12,6 +12,7 @@ class Schedule(QObject):
     """A class that implements two schedule strategy"""
     # global constant:
     result_sig = pyqtSignal(list)
+    finished_sig = pyqtSignal()
 
     def __init__(self, eles):
         super(Schedule, self).__init__()
@@ -77,13 +78,18 @@ class Schedule(QObject):
         min_distance = min([abs(i - src) for i in ele_cur_floor.values()])
         picked_eles = [i for i in ele_cur_floor.keys() if abs(ele_cur_floor[i] - src) == min_distance]
         # print('picked_eles are {}'.format(picked_eles))
-        random.seed = 111
+        random.seed(111)
         return random.choice(picked_eles)
 
     def _notice(self, chg_ele, temp_flr, des):
         # message = "The final destination of current elecar is {}, the people who go to {} should change to elecar {} at {}".format(temp_flr, des, chg_ele, temp_flr)
-        message = "电梯到达楼层为{}层, 去往{}层的乘客请在{}层换乘{}".format(
-            temp_flr, des, temp_flr, chg_ele)
+        if isinstance(chg_ele, list):
+            if len(chg_ele) != 0:
+                message = "电梯到达楼层为{}层, 当前无可用换乘轿厢，将在{}层之前逐层检查轿厢是否可用".format(temp_flr, temp_flr)
+            else:
+                message = "电梯到达楼层为{}层, 未寻找到可用换乘轿厢".format(temp_flr)
+        else:
+            message = "电梯到达楼层为{}层, 去往{}层的乘客请在{}层换乘{}".format(temp_flr, des, temp_flr, chg_ele)
         return message
 
     def _get_y_status(self, picked_name):
@@ -127,7 +133,7 @@ class Schedule(QObject):
         :param floor:
         :return: Dcd, Dcd, dict type
         '''
-        print('calculating Dcc, Dcd among {}'.format(name_set))
+        # print('calculating Dcc, Dcd among {}'.format(name_set))
         eles = {i: self.eles[self.ELE_DICT[i]] for i in name_set}
         Dcc = {i: eles[i].getLocation() - floor for i in eles.keys()}
         Dcd = {i: eles[i].getLocation() - eles[i].des_exg_dict[eles[i].running_set][-1][0] for i in eles.keys()}
@@ -141,11 +147,12 @@ class Schedule(QObject):
         :return: Boolean
         '''
         ele = [e for e in self.eles if e.ele_name == ele_name][0]
-        current_amount = ele.get_current_amount()
-        midway_floors = [des_floor[0] for des_floor in ele.des_exg_dict[ele.running_set] if des_floor[0] < floor]
-        increasement = len(
-            midway_floors) * 1  # this number is reserved to be changed to simulate the real situation that more than one person would get in at one time
-        total_amount = current_amount + increasement
+        try:
+            increment = sum([des_floor[3] for des_floor in ele.des_exg_dict[ele.running_set] if des_floor[0] < floor])
+        except KeyError:
+            # if ele not running, then it neither 'up' nor 'down'
+            increment = 0
+        total_amount = ele.get_current_amount() + increment
         if total_amount >= ele.max_amount:
             return True
         else:
@@ -158,12 +165,12 @@ class Schedule(QObject):
         :param src:
         :return:
         '''
-        print('choosing from static set :{}'.format(static_set))
+        # print('choosing from static set :{}'.format(static_set))
         ele_status = self._get_y_status(static_set)
         ele_picked = self._nearest_ele({key: ele_status[key] for key in static_set}, src)
         return ele_picked
 
-    def _get_chg(self, cur_ele, src, des, candidate, temp_flr, direction=None):
+    def _get_chg(self, cur_ele, src, des, candidate, temp_flr, direction=None, solo=False):
         '''
         recurrently find the available elecar  from candidates, if failed at the destination, use a different flag to indicate the failing info
         :param cur_ele:
@@ -179,18 +186,28 @@ class Schedule(QObject):
             candidate = self.adjust_set(candidate, src, des)
             candidate_eles = [self.eles[self.ELE_DICT[i]] for i in candidate]
 
-            print('candidate_eles are {}'.format(candidate))
-            available_eles = [ele for ele in candidate_eles if (ele.direction == direction) | (ele.direction == 'stop')]
-            print('available eles for exg are {}'.format([ele.ele_name for ele in available_eles]))
+            # print('candidate_eles are {}'.format(candidate))
+            available_eles = [ele for ele in candidate_eles if (
+            (ele.direction == 'stop') | ((ele.direction == direction) & (not self._is_full(ele.ele_name, temp_flr))))]
+            # print('available eles for exg are {}'.format([ele.ele_name for ele in available_eles]))
             if len(available_eles) == 0:
-                time.sleep(1)
-                print('inside the loop of seeking exg ele...')
-                self._get_chg(cur_ele, src, des, ori_candidate, temp_flr, direction=direction)
+                # print('there is no available eles for now')
+                if not solo:
+                    return [cur_ele, temp_flr, ori_candidate, des]
+                else:
+                    while self.eles[self.ELE_DICT[cur_ele]].getLocation() != temp_flr:
+                        time.sleep(1)
+                        print('inside the loop of seeking exg ele...')
+                        # print('the status of all the ele is {}'.format([e.getLocation() for e in self.eles]))
+                        return self._get_chg(cur_ele, src, des, ori_candidate, temp_flr, direction=direction, solo=True)
+                    # if no result, then return a empty list
+                    return [cur_ele, temp_flr, [], des]
             else:
                 temp_status = self._get_y_status([ele.ele_name for ele in available_eles])
                 chg_ele = self._nearest_ele(temp_status, temp_flr)
-                print('exchange ele is {}'.format(chg_ele))
+                # print('exchange ele is {}'.format(chg_ele))
                 return [cur_ele, temp_flr, chg_ele, des]
+
         else:
             temp_status = self._get_y_status(candidate)
             chg_ele = self._nearest_ele(temp_status, temp_flr)
@@ -303,7 +320,7 @@ class Schedule(QObject):
         if src == 0:
             if des == 1:
                 if ele_picked == 'B1':
-                    result.extend(self._get_chg('B1', ori_src, ori_des, ['A', 'C', 'D1'], 15, direction=ele_direction))
+                    result.extend(self._get_chg('B1', ori_src, ori_des, ['A', 'C1', 'D1'], 15, direction=ele_direction))
             elif des == 2:
                 if ele_picked == 'C1':
                     result.extend(self._get_chg('C1', ori_src, ori_des, ['A', 'B2', 'D1'], 30, direction=ele_direction))
@@ -370,8 +387,7 @@ class Schedule(QObject):
         change_result = self._whether_change_coms(ele_picked, src, des)
         if len(change_result) == 5:
             # output the notice if change needed. string
-            change_notice = self._notice(
-                chg_ele=change_result[3], temp_flr=change_result[2], des=des)
+            change_notice = self._notice(chg_ele=change_result[3], temp_flr=change_result[2], des=des)
             # print(change_notice)
             change_result.insert(0, change_notice)
             return change_result
@@ -387,15 +403,30 @@ class Schedule(QObject):
         print('seeking result..........from {} to {}'.format(self.src, self.des))
         schedule_result = self.commands(self.src, self.des)
         # print('the result calculated is \n{}'.format(schedule_result))
+        # ## the notice is like: [notice, src, cur_ele, temp_flr, chg_ele, des] or [src, ele, des]
         self.result_sig.emit(schedule_result)
-        print('the result_sig is emitted out.................')
+        # print('the result_sig is emitted out.................')
+        # if the exg_ele is not confirmed, then go back to search for a ele if possible
+        # print('length of schedule result is {} and type of schedule_result[3] is {}'.format(len(schedule_result), type(schedule_result[3])))
+        if len(schedule_result) == 6:
+            if isinstance(schedule_result[4], list):
+                # print('len of schedule_result[3] is {}'.format(len(schedule_result[4])))
+                if len(schedule_result[4]) != 0:
+                    # print('in the progress of loop searching')
+                    ele_direction = 'up' if (schedule_result[-1] - schedule_result[1]) > 0 else 'down'
+                    change_result = self._get_chg(schedule_result[2], schedule_result[1], schedule_result[-1],
+                                                  schedule_result[4], schedule_result[3], direction=ele_direction,
+                                                  solo=True)
+                    change_result.insert(0, schedule_result[1])
+                    change_notice = self._notice(chg_ele=change_result[3], temp_flr=change_result[2],
+                                                 des=change_result[-1])
+                    change_result.insert(0, change_notice)
+                    self.result_sig.emit(change_result)
+        # print('the schedule is done, finished_sig is to be sent')
         self.isRunning = False
+        self.finished_sig.emit()
 
     def test(self):
         while True:
             time.sleep(3)
             print('inside infinite loop of scheduler...{}'.format(self.test_src))
-
-
-if __name__ == '__main__':
-    pass

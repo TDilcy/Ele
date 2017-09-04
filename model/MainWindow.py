@@ -3,7 +3,6 @@ import copy
 import random
 import re
 import time
-from functools import reduce
 
 from PyQt4.QtCore import QThread
 
@@ -19,7 +18,7 @@ class MainWindow(RedefineUi):
         # the demo of the schedule
         # the init_variables
 
-        print('the main thread in MainWindow is\n{}'.format(QThread.currentThread()))
+        # print('the main thread in MainWindow is\n{}'.format(QThread.currentThread()))
         self.pass_info = ''
         self.pass_info_dict = {}
         self.pass_count = 0
@@ -40,7 +39,7 @@ class MainWindow(RedefineUi):
         self.init_thread_worker_pair()
         # ================ this is thread test =====================
         self.test_thread = QThread()
-        self.ui.thread_button.clicked.connect(self.thread_test)
+        # self.ui.thread_button.clicked.connect(self.thread_test)
         # print('the test thread in MainWindow is\n{}'.format(self.test_thread))
         # ==========================================================
 
@@ -56,6 +55,7 @@ class MainWindow(RedefineUi):
         self.ui.shuffle_button.clicked.connect(self.shuffle)
         # 1. Reset all thing to be the initial status
         self.ui.clear_button.clicked.connect(self.clear)
+        self.ui.reset_button.clicked.connect(self.__init__)
         # 2. The LEDs show the floor information, the amount of people is shown in the elevator, and update the ele_status,
         #    the input_browser show the input information
         for ele in self.elecars:
@@ -90,6 +90,7 @@ class MainWindow(RedefineUi):
             route_id = self.hash_route_id(src, des, amount)
             self.request_list.append((src, des, amount, route_id))
         temp_request_list = copy.deepcopy(self.request_list)
+        # print('temp_request_list is {}'.format(temp_request_list))
         # reset for next calling
         # self.request_list = []
         self.ui.request_broswer.clear()
@@ -114,6 +115,8 @@ class MainWindow(RedefineUi):
             self.update_ele_des(route, route_id, amount)
 
         def show_schedule_info_in_func(route):
+            print('the route is {}, and the route_id is {},\n the thread is {}'.format(route, route_id,
+                                                                                       QThread.currentThread()))
             self.show_schedule_info(route, route_id)
 
         # print('the running status of threads are {}'.format([t.isR]))
@@ -152,7 +155,8 @@ class MainWindow(RedefineUi):
         # print('the worker is {}'.format(worker))
         worker.result_sig.connect(show_schedule_info_in_func)
         worker.result_sig.connect(update_ele_in_func)
-        worker.result_sig.connect(thread_.exit)
+        worker.finished_sig.connect(lambda: self.res_disconnect(worker))
+        worker.finished_sig.connect(thread_.exit)
 
         # #===========================another way======================
         # print('start getting result')
@@ -181,6 +185,12 @@ class MainWindow(RedefineUi):
         # scheduler.worker.result_sig.connect(show_schedule_info_in_func)
         # scheduler.worker.result_sig.connect(update_ele_in_func)
         # scheduler.worker.result_sig.connect(self.schedule_threads[idx].exit)
+
+    def res_disconnect(self, worker):
+        try:
+            worker.finished_sig.disconnect()
+        except TypeError:
+            pass
 
     def init_thread_worker_pair(self):
         '''
@@ -225,7 +235,7 @@ class MainWindow(RedefineUi):
         # if len(route)==6: then it is [notice, src, cur_ele, temp_flr, chg_ele, des]
         # self.sche_count += 1
         sche_count = self.ord_route_id_dict[route_id]
-        print('the schedule count is {} now'.format(sche_count))
+        # print('the schedule count is {} now'.format(sche_count))
         self._setSchText_dict(sche_count, route, route_id)
         self._setScheText()
         self.ui.sch_info_broswer.setHtml(self.sche_info)
@@ -235,22 +245,46 @@ class MainWindow(RedefineUi):
         '''
         two condition are considered: with or without elevator exchanged
         '''
+        # print('setting the schedule info...the route is {}, route_id is {}'.format(route, route_id))
         if len(route) == 3:
             self.sche_info_dict[route_id] = [order,
                                              '<tr>    <td><font color={color}>{ord}</font></td>  <td><font color={color}>{src}</font></td>  <td><font color={color}>{des}</font></td> <td><font color={color}><b>{des}</b>({ele})</font></td>   </tr>'.format(
                                                  ord=order, src=route[0], des=route[-1], ele=route[1], color='#000000')]
         elif len(route) == 6:
-            self.sche_info_dict[route_id] = [order,
-                                             '<tr>    <td><font color={color}>{ord}</font></td>  <td><font color={color}>{src}</font></td>  <td><font color={color}>{des}</font></td>  <td><font color={color}><b>{chg_flr}</b>({cur_ele})——><b>{des}</b>({chg_ele})</font></td>    </tr>'.format(
-                                                 ord=order, src=route[1], des=route[-1], chg_flr=route[3],
-                                                 cur_ele=route[2], chg_ele=route[4], color='#000000')]
+            if isinstance(route[4], list):
+                # if in the process of searching exg_ele
+                if len(route[4]) != 0:
+                    self.sche_info_dict[route_id] = [order,
+                                                     '<tr>    <td><font color={color}>{ord}</font></td>  <td><font color={color}>{src}</font></td>  <td><font color={color}>{des}</font></td>  <td><font color={color}><b>{chg_flr}</b>({cur_ele})——><b>{des}</b>({chg_ele})</font></td>    </tr>'.format(
+                                                         ord=order, src=route[1], des=route[-1], chg_flr=route[3],
+                                                         cur_ele=route[2], chg_ele='...', color='#000000')]
+                # if no result returned after searching
+                else:
+                    self.sche_info_dict[route_id] = [order,
+                                                     '<tr>    <td><font color={color}>{ord}</font></td>  <td><font color={color}>{src}</font></td>  <td><font color={color}>{des}</font></td>  <td><font color={color}><b>{chg_flr}</b>({cur_ele})——><b>{des}</b>({chg_ele})</font></td>    </tr>'.format(
+                                                         ord=order, src=route[1], des=route[-1], chg_flr=route[3],
+                                                         cur_ele=route[2], chg_ele='None', color='#000000')]
+            # the normal situation
+            else:
+                # in case that the second schedule_result of a route change the color representing the excuting status
+                if route_id not in self.sche_info_dict.keys():
+                    self.sche_info_dict[route_id] = [order,
+                                                     '<tr>    <td><font color={color}>{ord}</font></td>  <td><font color={color}>{src}</font></td>  <td><font color={color}>{des}</font></td>  <td><font color={color}><b>{chg_flr}</b>({cur_ele})——><b>{des}</b>({chg_ele})</font></td>    </tr>'.format(
+                                                         ord=order, src=route[1], des=route[-1], chg_flr=route[3],
+                                                         cur_ele=route[2], chg_ele=route[4], color='#000000')]
+                else:
+                    self.sche_info_dict[route_id] = [order,
+                                                     '<tr>    <td><font color={color}>{ord}</font></td>  <td><font color={color}>{src}</font></td>  <td><font color={color}>{des}</font></td>  <td><font color={color}><b>{chg_flr}</b>({cur_ele})——><b>{des}</b>({chg_ele})</font></td>    </tr>'.format(
+                                                         ord=order, src=route[1], des=route[-1], chg_flr=route[3],
+                                                         cur_ele=route[2], chg_ele=route[4], color='#FF9900')]
 
     def _setScheText(self):
+        # print('the route_id in sche_dict now is {}, and the schedule_order is {}'.format(self.sche_info_dict.keys(), [i[0] for i in self.sche_info_dict.values()]))
         sorted_route_info = sorted(self.sche_info_dict.values(), key=lambda x: x[0])
-        # base_sche_info = ''
-        # for route_info in sorted_route_info:
-        #     base_sche_info += route_info[1]
-        base_sche_info = reduce(lambda x, y: x + y, [route_info[1] for route_info in sorted_route_info])
+        base_sche_info = ''
+        for route_info in sorted_route_info:
+            base_sche_info += route_info[1]
+        # base_sche_info = reduce(lambda x, y: x + y, [route_info[1] for route_info in sorted_route_info])
         self.sche_info = '<table><tr>    <th>记录</th> <th>呼梯楼层</th>  <th>目的楼层</th> <th>调度结果</th> </tr>{show_info}</table>'.format(
             show_info=base_sche_info)
 
@@ -310,18 +344,35 @@ class MainWindow(RedefineUi):
                             route_finished=['S', 'E'])
             # print('the ele_list of {} is updated to \n{}\nfirst stat is {}'.format(ele.ele_name, ele.des_exg_dict, ele.is_first))
         elif len(route) == 6:
-            # route is like: [notice, src, cur_ele, temp_flr, chg_ele, des]
+            # # to be rewrite to handle the new situation
             ele1 = [ele for ele in self.elecars if ele.ele_name == route[2]][0]
-            # ele1's des list here is straight, yet ele2's is a turn back
-            ele2 = [ele for ele in self.elecars if ele.ele_name == route[-2]][0]
-            self.assign_des(ele1, des1=route[1], des2=route[3], exg_info=['N', route[4]], amount=amount,
-                            route_id=route_id, route_finished=['S', 'N'])
-            self.assign_des(ele2, des1=route[3], des2=route[5], exg_info=[route[2], 'N'], amount=amount,
-                            route_id=route_id, route_finished=['N', 'E'])
-            # print('the amount of people in {} before moving is {}'.format(ele1.ele_name, ele1.current_amount))
-            # print('the amount of people in {} before moving is {}'.format(ele2.ele_name, ele2.current_amount))
-            # print('the des_exg_dict of {} is updated to \n{},\nthe is_first_stat is {}'.format(ele1.ele_name, ele1.des_exg_dict, ele1.is_first))
-            # print('the des_exg_dict of {} is updated to \n{},\nthe is_first_stat is {}'.format(ele2.ele_name, ele2.des_exg_dict, ele2.is_first))
+            if isinstance(route[4], list):
+                if len(route[4]) != 0:
+                    # if in searching for exg ele
+                    self.assign_des(ele1, des1=route[1], des2=route[3], exg_info=['N', 'N'], amount=amount,
+                                    route_id=route_id, route_finished=['S', 'E'])
+                    # print('the des_exg_dict of {} is updated to \n{},\nthe is_first_stat is {}'.format(ele1.ele_name,
+                    #                                                                                    ele1.des_exg_dict,
+                    #                                                                                    ele1.is_first))
+
+            else:
+                # route is like: [notice, src, cur_ele, temp_flr, chg_ele, des]
+                # if the route is already in the ele1's des list, then just update the info
+
+                # #####################################################
+                ele1_route_ids = [i[4] for direc in ['up', 'down'] for i in ele1.des_exg_dict[direc]]
+                if route_id in ele1_route_ids:
+                    self.update_des(ele1, route_id, route[-2])
+                else:
+                    self.assign_des(ele1, des1=route[1], des2=route[3], exg_info=['N', route[4]], amount=amount,
+                                    route_id=route_id, route_finished=['S', 'N'])
+                ele2 = [ele for ele in self.elecars if ele.ele_name == route[-2]][0]
+                self.assign_des(ele2, des1=route[3], des2=route[5], exg_info=[route[2], 'N'], amount=amount,
+                                route_id=route_id, route_finished=['N', 'E'])
+                # print('the amount of people in {} before moving is {}'.format(ele1.ele_name, ele1.current_amount))
+                # print('the amount of people in {} before moving is {}'.format(ele2.ele_name, ele2.current_amount))
+                # print('the des_exg_dict of {} is updated to \n{},\nthe is_first_stat is {}'.format(ele1.ele_name, ele1.des_exg_dict, ele1.is_first))
+                # print('the des_exg_dict of {} is updated to \n{},\nthe is_first_stat is {}'.format(ele2.ele_name, ele2.des_exg_dict, ele2.is_first))
 
     # #################################################################
 
@@ -347,7 +398,18 @@ class MainWindow(RedefineUi):
         # set the des1_des2_diff value
         if (des1 - ele_cur_flr) * (des2 - des1) < 0:
             ele.des1_des2_diff = des1
+        # print('the des_exg_dict of {} updated before is \n{}'.format(ele.ele_name, ele.des_exg_dict))
         ele.update_des_exg_dict()
+
+    def update_des(self, ele, route_id, exg_ele):
+        # update the exg and is_finished status to the right one
+        print('the route_id already exists, updating it')
+        for direc in ['up', 'down']:
+            for index, des_set in enumerate(ele.des_exg_dict[direc]):
+                if (route_id in des_set) & ('E' in des_set):
+                    ele.des_exg_dict[direc][index][1] = exg_ele
+                    ele.des_exg_dict[direc][index][-1] = 'N'
+
 
     @staticmethod
     def hash_route_id(src, des, amount):

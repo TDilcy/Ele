@@ -1,4 +1,5 @@
 import time
+from collections import defaultdict
 
 from PyQt4 import QtGui, QtCore
 from PyQt4.QtCore import QObject
@@ -137,20 +138,52 @@ class ElevatorCar(QtGui.QLabel):
     #         if nearest_Y[-1] < nearest_des[0]:
     #             self.des_exg_dict[self.direction].pop()
 
-    @staticmethod
-    def sort_drop_des(des_exg_list, direction):
+    def sort_drop_des(self, des_exg_list, direction):
         if direction == 'down':
             des_exg_list = sorted(des_exg_list, key=lambda x: x[0])
         else:
             des_exg_list = sorted(des_exg_list, key=lambda x: x[0], reverse=True)
+        # rule 1: if two routes own the same des, then the one that need to exchange would override another one
         des_list = [a[0] for a in des_exg_list]
-        seen = set()
-        seen_add = seen.add
-        dup_idx = [idx for idx, item in enumerate(des_list) if item in seen or seen_add(item)]
-        for idx in dup_idx:
-            if des_exg_list[idx][1] == 'N':
-                des_exg_list.pop(idx)
+        des_dup_idx = self.list_duplicates(des_list)
+
+        for idxes in des_dup_idx.values():
+            for idx in idxes[:-1]:
+                if des_exg_list[idx][1] == 'N':
+                    des_exg_list.pop(idx)
+                    idxes.remove(idx)
+            if len(idxes) != 1:
+                # if not 1, then the correct one must have been left, so drop the last one
+                des_exg_list.pop(idxes[-1])
+        # # rule 2: if two route own the same route_id, then the one who need to exchange ele would override the another
+        # route_id_list = [a[4] for a in des_exg_list]
+        # route_dup_idx = self.list_duplicates(route_id_list)
+        # for idxes in route_dup_idx.values():
+        #     # exg_fin_pair = [(des_exg_list[idx][1], des_exg_list[idx][-1]) for idx in idxes]
+        #     # if ('N', 'E') in exg_fin_pair:
+        #     #     des_exg_list.pop(exg_fin_pair.index(('N', 'E')))
+        #     for idx in idxes:
+        #         if (des_exg_list[idx][1] == 'N') & (des_exg_list[idx][-1] == 'E'):
+        #             des_exg_list.pop(idx)
+        #             idxes.remove(idx)
+        #     # if len(idxes) != 1:
+        #     #     # if not 1, then the correct one must have been left, so drop the last one
+        #     #     des_exg_list.pop(idxes[-1])
         return des_exg_list
+
+    @staticmethod
+    def list_duplicates(seq):
+        '''
+        obtain the indices of each duplicate element as a dict
+        :param seq:
+        :return:
+        '''
+        tally = defaultdict(list)
+        for i, item in enumerate(seq):
+            tally[item].append(i)
+        return {key: locs for key, locs in tally.items() if len(locs) > 1}
+
+
 
     def update_des_exg_dict(self):
         # make sure there is no duplicate des, the exg des would replace the normal one(if both exsit), and sort the up and down set
@@ -215,12 +248,15 @@ class EleWorker(QtCore.QObject):
                 amount = des_exg[3]
                 route_id = des_exg[4]
                 route_finished = des_exg[5]
+                # print('the route_finished of {} is {}, and the des is {}'.format(self.subject.ele_name, route_finished, des))
                 des_y = self.subject.ele_floor2y(des)
                 # print('the des popped is {}'.format(des))
                 # print('the exg_ele popped is {}'.format(exg_ele))
                 current_loc = self.subject.geometry().y()
                 x = self.subject.geometry().x()
                 if route_finished == 'S':
+                    # if des_exg[5] == 'S':
+                    # print('the des of ele {} is {}, and the route_finished sig {} is sent'.format(self.subject.ele_name, des, des_exg[5]))
                     self.subject.execute_id_sig.emit(route_id, 'started')
                 # print('current loc of {} is {}, that is {} floor, nearest des is {}'.format(self.subject.ele_name, current_loc, self.subject.getLocation(),des))
                 if current_loc > des_y:
@@ -261,6 +297,8 @@ class EleWorker(QtCore.QObject):
                         print('the actual_in is {}'.format(actual_in))
                         self.subject.adjust_amount(route_id, actual_in)
                 if route_finished == 'E':
+                    # if des_exg[5] == 'E':
+                    # print('the des of ele {} is {}, and the route_finished sig {} is sent'.format(self.subject.ele_name, des, des_exg[5]))
                     self.subject.execute_id_sig.emit(route_id, 'finished')
 
                 self.subject.des_exg_dict[

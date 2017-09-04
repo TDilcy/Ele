@@ -4,7 +4,7 @@ block_cipher = None
 
 
 a = Analysis(['main.py'],
-             pathex=['E:\\projects\\elevator_Version3'],
+             pathex=['D:\\Coding\\projects\\elevator_Version4'],
              binaries=[],
              datas=[],
              hiddenimports=[],
@@ -25,4 +25,4 @@ exe = EXE(pyz,
           debug=False,
           strip=False,
           upx=True,
-          console=False )
+          console=True )
