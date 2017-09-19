@@ -295,7 +295,7 @@ class EleWorker(QtCore.QObject):
                     if actual_in != -1:
                         # change the amount in the des_list with same route_id to the right number, drop the des if actual_in is 0.
                         print('the actual_in is {}'.format(actual_in))
-                        self.subject.adjust_amount(route_id, actual_in)
+                        self.subject.adjust_amount_des(route_id, actual_in)
                 if route_finished == 'E':
                     # if des_exg[5] == 'E':
                     # print('the des of ele {} is {}, and the route_finished sig {} is sent'.format(self.subject.ele_name, des, des_exg[5]))

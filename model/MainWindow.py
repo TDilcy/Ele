@@ -32,11 +32,14 @@ class MainWindow(RedefineUi):
         self.request_list = []
         self.ord_route_id_dict = {}
 
+        self.ele_des_finished = False
+        self.thread_num = 100
+
         # self.schedulers = [ScheduleWorker(self.elecars) for i in range(4)]
-        self.schedule_threads = [QThread() for i in range(11)][1:]  # drop the first one
+        self.schedule_threads = [QThread() for i in range(self.thread_num + 1)][1:]  # drop the first one
         # self.schedulers = [Schedule(self.elecars) for i in range(4)]
-        self.schedule_workers = [Schedule(self.elecars) for i in range(10)]
-        self.init_thread_worker_pair()
+        self.schedule_workers = [Schedule(self.elecars) for i in range(self.thread_num)]
+        self.init_thread_worker_pair(self.thread_num)
         # ================ this is thread test =====================
         self.test_thread = QThread()
         # self.ui.thread_button.clicked.connect(self.thread_test)
@@ -97,26 +100,32 @@ class MainWindow(RedefineUi):
         self.base_request_info = ''
 
         for request in temp_request_list:
+            self.ele_des_finished = False
             src = request[0]
             des = request[1]
             amount = request[2]
             route_id = request[3]
             # print('request is {}'.format(request))
             self.get_single_result(src, des, amount, route_id)
-
+            # print('a command is done======================================')
+            time.sleep(0.2)
+            # while not self.ele_des_finished:
+            #     print('self.ele_des_finished is {}'.format(self.ele_des_finished))
+            #     print('waiting ele_des_finished turning to True')
+            #     QApplication.processEvents()
+            #     time.sleep(1)
 
     def get_single_result(self, src, des, amount, route_id):
         '''
         fetch the src, des, and use schedule module to calculate the route, then emit the result when calculating is done
         '''
-        print('start getting result')
+        print('start getting single result, the route_id is {}'.format(route_id))
 
-        def update_ele_in_func(route):
-            self.update_ele_des(route, route_id, amount)
+        # def update_ele_in_func(route):
+        #     self.update_ele_des(route, route_id, amount)
 
         def show_schedule_info_in_func(route):
-            print('the route is {}, and the route_id is {},\n the thread is {}'.format(route, route_id,
-                                                                                       QThread.currentThread()))
+            # print('the route is {}, and the route_id is {},\n the thread is {}'.format(route, route_id, QThread.currentThread()))
             self.show_schedule_info(route, route_id)
 
         # print('the running status of threads are {}'.format([t.isR]))
@@ -137,6 +146,8 @@ class MainWindow(RedefineUi):
         worker = self.schedule_workers[idx]
         worker.set_src(src)
         worker.set_des(des)
+        worker.set_amount(amount)
+        worker.set_route_id(route_id)
         worker.isRunning = True
         #####################################
         # worker = ScheduleWorker(self.scheduler)
@@ -154,9 +165,12 @@ class MainWindow(RedefineUi):
         thread_.start()
         # print('the worker is {}'.format(worker))
         worker.result_sig.connect(show_schedule_info_in_func)
-        worker.result_sig.connect(update_ele_in_func)
+        # worker.result_sig.connect(lambda: print('the schedule info is {}'.format(self.sche_info_dict)))
+        # worker.result_sig.connect(update_ele_in_func)
         worker.finished_sig.connect(lambda: self.res_disconnect(worker))
-        worker.finished_sig.connect(thread_.exit)
+        worker.finished_sig.connect(thread_.quit)
+        thread_.finished.connect(lambda: self.thread_finish_indicate(idx))
+        # if self.ele_des_finished
 
         # #===========================another way======================
         # print('start getting result')
@@ -188,16 +202,22 @@ class MainWindow(RedefineUi):
 
     def res_disconnect(self, worker):
         try:
+            worker.result_sig.disconnect()
             worker.finished_sig.disconnect()
+            print('try disconnecting...')
         except TypeError:
+            print('disconnect failed')
             pass
 
-    def init_thread_worker_pair(self):
+    def thread_finish_indicate(self, idx):
+        print('Thread {} is finished'.format(idx))
+
+    def init_thread_worker_pair(self, thread_num):
         '''
         match the thread and worker in case the "can't move to thread" error is thrown
         :return:
         '''
-        for i in range(10):
+        for i in range(thread_num):
             self.schedule_workers[i].moveToThread(self.schedule_threads[i])
             self.schedule_threads[i].started.connect(lambda: print('the schedule thread starts'))
             self.schedule_threads[i].finished.connect(lambda: print('the schedule thread done'))
@@ -234,6 +254,7 @@ class MainWindow(RedefineUi):
         # if len(route)==3: then it is [src, ele_picked, des]
         # if len(route)==6: then it is [notice, src, cur_ele, temp_flr, chg_ele, des]
         # self.sche_count += 1
+        print('the route is {}, and the route_id is {}'.format(route, route_id))
         sche_count = self.ord_route_id_dict[route_id]
         # print('the schedule count is {} now'.format(sche_count))
         self._setSchText_dict(sche_count, route, route_id)
@@ -263,7 +284,7 @@ class MainWindow(RedefineUi):
                     self.sche_info_dict[route_id] = [order,
                                                      '<tr>    <td><font color={color}>{ord}</font></td>  <td><font color={color}>{src}</font></td>  <td><font color={color}>{des}</font></td>  <td><font color={color}><b>{chg_flr}</b>({cur_ele})——><b>{des}</b>({chg_ele})</font></td>    </tr>'.format(
                                                          ord=order, src=route[1], des=route[-1], chg_flr=route[3],
-                                                         cur_ele=route[2], chg_ele='None', color='#000000')]
+                                                         cur_ele=route[2], chg_ele='无', color='#000000')]
             # the normal situation
             else:
                 # in case that the second schedule_result of a route change the color representing the excuting status
@@ -329,86 +350,88 @@ class MainWindow(RedefineUi):
             show_info=self.base_request_info)
         self.ui.request_broswer.setHtml(request_info)
 
-    def update_ele_des(self, route, route_id, amount=1):
-        '''
-        update the ele des_exg_dict and the exg_list of chosen ele
-        '''
-        # print('updating ele status')
-        print('the route obtained is {}'.format(route))
-        if len(route) == 3:
-            # route is like: [src, ele, des]
-            # this condition contains the insert situation
-
-            ele = [ele for ele in self.elecars if ele.ele_name == route[1]][0]
-            self.assign_des(ele, des1=route[0], des2=route[2], exg_info=['N', 'N'], route_id=route_id,
-                            route_finished=['S', 'E'])
-            # print('the ele_list of {} is updated to \n{}\nfirst stat is {}'.format(ele.ele_name, ele.des_exg_dict, ele.is_first))
-        elif len(route) == 6:
-            # # to be rewrite to handle the new situation
-            ele1 = [ele for ele in self.elecars if ele.ele_name == route[2]][0]
-            if isinstance(route[4], list):
-                if len(route[4]) != 0:
-                    # if in searching for exg ele
-                    self.assign_des(ele1, des1=route[1], des2=route[3], exg_info=['N', 'N'], amount=amount,
-                                    route_id=route_id, route_finished=['S', 'E'])
-                    # print('the des_exg_dict of {} is updated to \n{},\nthe is_first_stat is {}'.format(ele1.ele_name,
-                    #                                                                                    ele1.des_exg_dict,
-                    #                                                                                    ele1.is_first))
-
-            else:
-                # route is like: [notice, src, cur_ele, temp_flr, chg_ele, des]
-                # if the route is already in the ele1's des list, then just update the info
-
-                # #####################################################
-                ele1_route_ids = [i[4] for direc in ['up', 'down'] for i in ele1.des_exg_dict[direc]]
-                if route_id in ele1_route_ids:
-                    self.update_des(ele1, route_id, route[-2])
-                else:
-                    self.assign_des(ele1, des1=route[1], des2=route[3], exg_info=['N', route[4]], amount=amount,
-                                    route_id=route_id, route_finished=['S', 'N'])
-                ele2 = [ele for ele in self.elecars if ele.ele_name == route[-2]][0]
-                self.assign_des(ele2, des1=route[3], des2=route[5], exg_info=[route[2], 'N'], amount=amount,
-                                route_id=route_id, route_finished=['N', 'E'])
-                # print('the amount of people in {} before moving is {}'.format(ele1.ele_name, ele1.current_amount))
-                # print('the amount of people in {} before moving is {}'.format(ele2.ele_name, ele2.current_amount))
-                # print('the des_exg_dict of {} is updated to \n{},\nthe is_first_stat is {}'.format(ele1.ele_name, ele1.des_exg_dict, ele1.is_first))
-                # print('the des_exg_dict of {} is updated to \n{},\nthe is_first_stat is {}'.format(ele2.ele_name, ele2.des_exg_dict, ele2.is_first))
+    # def update_ele_des(self, route, route_id, amount=1):
+    #     '''
+    #     update the ele des_exg_dict and the exg_list of chosen ele
+    #     '''
+    #     # print('updating ele status')
+    #     print('the route obtained is {}'.format(route))
+    #     if len(route) == 3:
+    #         # route is like: [src, ele, des]
+    #         # this condition contains the insert situation
+    #
+    #         ele = [ele for ele in self.elecars if ele.ele_name == route[1]][0]
+    #         self.assign_des(ele, des1=route[0], des2=route[2], exg_info=['N', 'N'], route_id=route_id,
+    #                         route_finished=['S', 'E'])
+    #         # print('the ele_list of {} is updated to \n{}\nfirst stat is {}'.format(ele.ele_name, ele.des_exg_dict, ele.is_first))
+    #     elif len(route) == 6:
+    #         # # to be rewrite to handle the new situation
+    #         ele1 = [ele for ele in self.elecars if ele.ele_name == route[2]][0]
+    #         if isinstance(route[4], list):
+    #             if len(route[4]) != 0:
+    #                 # if in searching for exg ele
+    #                 self.assign_des(ele1, des1=route[1], des2=route[3], exg_info=['N', 'N'], amount=amount,
+    #                                 route_id=route_id, route_finished=['S', 'E'])
+    #                 # print('the des_exg_dict of {} is updated to \n{},\nthe is_first_stat is {}'.format(ele1.ele_name,
+    #                 #                                                                                    ele1.des_exg_dict,
+    #                 #                                                                                    ele1.is_first))
+    #
+    #         else:
+    #             # route is like: [notice, src, cur_ele, temp_flr, chg_ele, des]
+    #             # if the route is already in the ele1's des list, then just update the info
+    #
+    #             # #####################################################
+    #             ele1_route_ids = [i[4] for direc in ['up', 'down'] for i in ele1.des_exg_dict[direc]]
+    #             if route_id in ele1_route_ids:
+    #                 self.update_des(ele1, route_id, route[-2])
+    #             else:
+    #                 self.assign_des(ele1, des1=route[1], des2=route[3], exg_info=['N', route[4]], amount=amount,
+    #                                 route_id=route_id, route_finished=['S', 'N'])
+    #             ele2 = [ele for ele in self.elecars if ele.ele_name == route[-2]][0]
+    #             self.assign_des(ele2, des1=route[3], des2=route[5], exg_info=[route[2], 'N'], amount=amount,
+    #                             route_id=route_id, route_finished=['N', 'E'])
+    #             # print('the amount of people in {} before moving is {}'.format(ele1.ele_name, ele1.current_amount))
+    #             # print('the amount of people in {} before moving is {}'.format(ele2.ele_name, ele2.current_amount))
+    #             # print('the des_exg_dict of {} is updated to \n{},\nthe is_first_stat is {}'.format(ele1.ele_name, ele1.des_exg_dict, ele1.is_first))
+    #             # print('the des_exg_dict of {} is updated to \n{},\nthe is_first_stat is {}'.format(ele2.ele_name, ele2.des_exg_dict, ele2.is_first))
+    #     self.ele_des_finished = True
+    #     print('the ele_des_finished is set as True')
 
     # #################################################################
 
-    def assign_des(self, ele, des1, des2, exg_info, route_id, route_finished, amount=1):
-        '''
-        exg_info contains the exg_info of des1 and des2 in the form of [exg1, exg2]
-        '''
-        ele_cur_flr = ele.getLocation()
-        if len(ele.des_exg_dict['up']) == 0 & len(ele.des_exg_dict['down']) == 0:
-            # if first time, then we should confirm which set should be executed first
-            if ele_cur_flr >= des1:  # the equal situation is included in this
-                ele.is_first = 'down'
-            elif ele_cur_flr < des1:
-                ele.is_first = 'up'
-        if ele_cur_flr >= des1:
-            ele.des_exg_dict['down'].append([des1, exg_info[0], 'N', amount, route_id, route_finished[0]])
-        elif ele_cur_flr < des1:
-            ele.des_exg_dict['up'].append([des1, exg_info[0], 'N', amount, route_id, route_finished[0]])
-        if des1 >= des2:
-            ele.des_exg_dict['down'].append([des2, exg_info[1], 'Y', amount, route_id, route_finished[1]])
-        elif des1 < des2:
-            ele.des_exg_dict['up'].append([des2, exg_info[1], 'Y', amount, route_id, route_finished[1]])
-        # set the des1_des2_diff value
-        if (des1 - ele_cur_flr) * (des2 - des1) < 0:
-            ele.des1_des2_diff = des1
-        # print('the des_exg_dict of {} updated before is \n{}'.format(ele.ele_name, ele.des_exg_dict))
-        ele.update_des_exg_dict()
-
-    def update_des(self, ele, route_id, exg_ele):
-        # update the exg and is_finished status to the right one
-        print('the route_id already exists, updating it')
-        for direc in ['up', 'down']:
-            for index, des_set in enumerate(ele.des_exg_dict[direc]):
-                if (route_id in des_set) & ('E' in des_set):
-                    ele.des_exg_dict[direc][index][1] = exg_ele
-                    ele.des_exg_dict[direc][index][-1] = 'N'
+    # def assign_des(self, ele, des1, des2, exg_info, route_id, route_finished, amount=1):
+    #     '''
+    #     exg_info contains the exg_info of des1 and des2 in the form of [exg1, exg2]
+    #     '''
+    #     ele_cur_flr = ele.getLocation()
+    #     if len(ele.des_exg_dict['up']) == 0 & len(ele.des_exg_dict['down']) == 0:
+    #         # if first time, then we should confirm which set should be executed first
+    #         if ele_cur_flr >= des1:  # the equal situation is included in this
+    #             ele.is_first = 'down'
+    #         elif ele_cur_flr < des1:
+    #             ele.is_first = 'up'
+    #     if ele_cur_flr >= des1:
+    #         ele.des_exg_dict['down'].append([des1, exg_info[0], 'N', amount, route_id, route_finished[0]])
+    #     elif ele_cur_flr < des1:
+    #         ele.des_exg_dict['up'].append([des1, exg_info[0], 'N', amount, route_id, route_finished[0]])
+    #     if des1 >= des2:
+    #         ele.des_exg_dict['down'].append([des2, exg_info[1], 'Y', amount, route_id, route_finished[1]])
+    #     elif des1 < des2:
+    #         ele.des_exg_dict['up'].append([des2, exg_info[1], 'Y', amount, route_id, route_finished[1]])
+    #     # set the des1_des2_diff value
+    #     if (des1 - ele_cur_flr) * (des2 - des1) < 0:
+    #         ele.des1_des2_diff = des1
+    #     # print('the des_exg_dict of {} updated before is \n{}'.format(ele.ele_name, ele.des_exg_dict))
+    #     ele.update_des_exg_dict()
+    #
+    # def update_des(self, ele, route_id, exg_ele):
+    #     # update the exg and is_finished status to the right one
+    #     print('the route_id already exists, updating it')
+    #     for direc in ['up', 'down']:
+    #         for index, des_set in enumerate(ele.des_exg_dict[direc]):
+    #             if (route_id in des_set) & ('E' in des_set):
+    #                 ele.des_exg_dict[direc][index][1] = exg_ele
+    #                 ele.des_exg_dict[direc][index][-1] = 'N'
 
 
     @staticmethod

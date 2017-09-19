@@ -9,7 +9,8 @@ from PyQt4.QtCore import pyqtSignal
 
 
 class Schedule(QObject):
-    """A class that implements two schedule strategy"""
+    '''A class that implements two schedule strategies'''
+    # the route should be stored in a dict rather than list..., this is a big mistake
     # global constant:
     result_sig = pyqtSignal(list)
     finished_sig = pyqtSignal()
@@ -19,6 +20,8 @@ class Schedule(QObject):
         self.eles = eles
         self.src = 0
         self.des = 0
+        self.amount = 0
+        self.route_id = ''
         self.test_src = 0
         self.isRunning = False
         # should the AVAI_MATRIX be changed
@@ -27,10 +30,10 @@ class Schedule(QObject):
         #                     [('A', 'B2', 'D1'), ('A', 'B2', 'D1'), ('A', 'B2', 'C2', 'D1'), ('A', 'B2', 'C2')],
         #                     [('A', 'B2', 'C2', 'D2'), ('A', 'B2', 'C2'), ('A', 'B2', 'C2'), ('A', 'B2', 'C2', 'D2')]]
 
-        self.AVAI_MATRIX = [('A', 'B1', 'C1', 'D1'),
-                            ('A', 'B2', 'C1', 'D1'),
-                            ('A', 'B2', 'C2', 'D1'),
-                            ('A', 'B2', 'C2', 'D2')]
+        self.AVAI_MATRIX = [['A', 'B1', 'C1', 'D1'],
+                            ['A', 'B2', 'C1', 'D1'],
+                            ['A', 'B2', 'C2', 'D1'],
+                            ['A', 'B2', 'C2', 'D2']]
 
         self.ELE_DICT = {'A': 0, 'B1': 1, 'C1': 2,
                          'D1': 3, 'B2': 4, 'C2': 5, 'D2': 6}
@@ -41,6 +44,12 @@ class Schedule(QObject):
 
     def set_des(self, des):
         self.des = des
+
+    def set_amount(self, amount):
+        self.amount = amount
+
+    def set_route_id(self, route_id):
+        self.route_id = route_id
 
     def set_test_src(self, test_src):
         self.test_src = test_src
@@ -170,7 +179,103 @@ class Schedule(QObject):
         ele_picked = self._nearest_ele({key: ele_status[key] for key in static_set}, src)
         return ele_picked
 
-    def _get_chg(self, cur_ele, src, des, candidate, temp_flr, direction=None, solo=False):
+    def check_one_way(self, one_way_route):
+        '''
+        check if the route is valid, the route is straight, with no turn-back
+        :param one_way_route: [src, ele, des]
+        :return:
+        '''
+        ele = [e for e in self.eles if e.ele_name == one_way_route[1]][0]
+        direction = 'up' if one_way_route[-1] - one_way_route[0] > 0 else 'down'
+        ele_des_range = [i[0] for i in ele.des_exg_dict[direction]]
+        if len(ele_des_range) == 0:
+            # this indicates that there is no previous route generated
+            print('return due to 0 length，current route is {}, no previous route'.format(one_way_route))
+            return 0
+        route_min = min([one_way_route[0], one_way_route[-1]])
+        route_max = max([one_way_route[0], one_way_route[-1]])
+        ele_min = min(ele_des_range)
+        ele_max = max(ele_des_range)
+        if direction == 'up':
+            if ele.running_set == 'up':
+                if (route_max <= ele_max) & (route_min >= ele.getLocation() + 1):
+                    print('return 0, current route is {}'.format(one_way_route))
+                    return 0
+                else:
+                    print('return 1, current route is {}'.format(one_way_route))
+                    return 1
+            else:
+                if (route_max <= ele_max) & (route_min >= ele_min):
+                    print('return 0, current route is {}'.format(one_way_route))
+                    return 0
+                else:
+                    print('return 1, current route is {}'.format(one_way_route))
+                    return 1
+        else:
+            if ele.running_set == 'down':
+                if (route_max <= ele.getLocation() - 1) & (route_min >= ele_min):
+                    print('return 0, current route is {}'.format(one_way_route))
+                    return 0
+                else:
+                    print('return 1, current route is {}'.format(one_way_route))
+                    return 1
+            else:
+                if (route_max <= ele_max) & (route_min >= ele_min):
+                    print('return 0, current route is {}'.format(one_way_route))
+                    return 0
+                else:
+                    print('return 1, current route is {}'.format(one_way_route))
+                    return 1
+
+    def check_validity(self, result):
+        # check if the result obtained is valid
+        if len(result) == 3:
+            # [src, ele, des]
+            print('len(route) is 3, and the ele is {}'.format(result[1]))
+            ele = [e for e in self.eles if e.ele_name == result[1]][0]
+            route_1 = [ele.getLocation(), result[1], result[0]]
+            route_2 = [result[0], result[1], result[2]]
+            if self.check_one_way(route_1) + self.check_one_way(route_2) > 0:
+                return 1
+            else:
+                return 0
+        else:
+            print('the result in validity is {}'.format(result))
+            # [notice, src, cur_ele, temp_flr, chg_ele, des]
+            ele1 = [e for e in self.eles if e.ele_name == result[2]][0]
+            if isinstance(result[4], list):
+                # if result[4] has more than one candidate, then only check the first half
+                first_way_1 = [ele1.getLocation(), result[2], result[1]]
+                first_way_2 = [result[1], result[2], result[3]]
+                if self.check_one_way(first_way_1) + self.check_one_way(first_way_2) > 0:
+                    print('result[4] is a list, and here returns 1')
+                    return 1
+                else:
+                    if len(result[4]) == 0:
+                        print('result[4] is a list, and here returns 0')
+                        # if first half is ok, and the candidate set is empty, then the route_result should be sent,
+                        # but we need to return another number other than 0 to distinguish from normal situation
+                        return 5
+                    else:
+                        return 0
+            else:
+                ele2 = [e for e in self.eles if e.ele_name == result[4]][0]
+                first_way_1 = [ele1.getLocation(), result[2], result[1]]
+                first_way_2 = [result[1], result[2], result[3]]
+                second_way_1 = [ele2.getLocation(), result[4], result[3]]
+                second_way_2 = [result[3], result[4], result[5]]
+            # if first way is not valid
+            if self.check_one_way(first_way_1) + self.check_one_way(first_way_2) > 0:
+                return 1
+            else:
+                # if second way is not valid
+                if self.check_one_way(second_way_1) + self.check_one_way(second_way_2) > 0:
+                    return 2
+                # if both is valid
+                else:
+                    return 0
+
+    def _get_chg(self, cur_ele, src, des, candidate, temp_flr, direction=None, solo=False, exclude='None'):
         '''
         recurrently find the available elecar  from candidates, if failed at the destination, use a different flag to indicate the failing info
         :param cur_ele:
@@ -184,19 +289,35 @@ class Schedule(QObject):
             # print('candidate is {}'.format(candidate))
             ori_candidate = candidate
             candidate = self.adjust_set(candidate, src, des)
+            if exclude != 'None':
+                candidate.remove(exclude)
             candidate_eles = [self.eles[self.ELE_DICT[i]] for i in candidate]
 
             # print('candidate_eles are {}'.format(candidate))
-            available_eles = [ele for ele in candidate_eles if (
-            (ele.direction == 'stop') | ((ele.direction == direction) & (not self._is_full(ele.ele_name, temp_flr))))]
+            available_eles = []
+            for ele in candidate_eles:
+                if ele.is_first != "None":
+                    if (ele.is_first == direction) & (not self._is_full(ele.ele_name, temp_flr)):
+                        available_eles.append(ele)
+                else:
+                    if (ele.direction == 'stop') | (
+                        (ele.direction == direction) & (not self._is_full(ele.ele_name, temp_flr))):
+                        available_eles.append(ele)
+            # available_eles = [ele for ele in candidate_eles if ((ele.direction == 'stop') | ((ele.direction == direction) & (not self._is_full(ele.ele_name, temp_flr))))]
             # print('available eles for exg are {}'.format([ele.ele_name for ele in available_eles]))
             if len(available_eles) == 0:
                 # print('there is no available eles for now')
                 if not solo:
+                    # print('the solo status is {}'.format(solo))
                     return [cur_ele, temp_flr, ori_candidate, des]
                 else:
+                    if self.eles[self.ELE_DICT[cur_ele]].getLocation() == temp_flr:
+                        # print('waiting 3s due to the y_loc == temp_flr')
+                        time.sleep(5)
+                    # while self.eles[self.ELE_DICT[cur_ele]].getLocation() == temp_flr:
+                    #         time.sleep(0.2)
                     while self.eles[self.ELE_DICT[cur_ele]].getLocation() != temp_flr:
-                        time.sleep(1)
+                        time.sleep(0.5)
                         print('inside the loop of seeking exg ele...')
                         # print('the status of all the ele is {}'.format([e.getLocation() for e in self.eles]))
                         return self._get_chg(cur_ele, src, des, ori_candidate, temp_flr, direction=direction, solo=True)
@@ -213,12 +334,78 @@ class Schedule(QObject):
             chg_ele = self._nearest_ele(temp_status, temp_flr)
             return [cur_ele, temp_flr, chg_ele, des]
 
-    def _step_one(self, src, des):
+    @staticmethod
+    def get_candidate(src, des, ele_picked):
+        result = []
+        if src == 0:
+            if des == 1:
+                if ele_picked == 'B1':
+                    result.extend([['A', 'C1', 'D1'], 15])
+            elif des == 2:
+                if ele_picked == 'C1':
+                    result.extend([['A', 'B2', 'D1'], 30])
+                elif ele_picked == 'B1':
+                    result.extend([['A', 'D1'], 15])
+            elif des == 3:
+                if ele_picked == 'B1':
+                    result.extend([['A'], 15])
+                elif ele_picked == 'C1':
+                    result.extend([['A', 'B2'], 30])
+                elif ele_picked == 'D1':
+                    result.extend([['A', 'B2', 'C2'], 45])
+
+        elif src == 1:
+            if des == 0:
+                if ele_picked == 'B2':
+                    result.extend([['A', 'C1', 'D1'], 16])
+            elif des == 2:
+                if ele_picked == 'C1':
+                    result.extend([['A', 'B2', 'D1'], 30])
+            elif des == 3:
+                if ele_picked == 'C1':
+                    result.extend([['A'], 30])
+                elif ele_picked == 'D1':
+                    result.extend([['A', 'B2', 'C2'], 45])
+
+        elif src == 2:
+            if des == 0:
+                if ele_picked == 'B2':
+                    result.extend([['A', 'C1', 'D1'], 16])
+                elif ele_picked == 'C2':
+                    result.extend([['A', 'D1'], 31])
+            elif des == 1:
+                if ele_picked == 'C2':
+                    result.extend([['A', 'B2', 'D1'], 31])
+            elif des == 3:
+                if ele_picked == 'D1':
+                    result.extend([['A', 'B2', 'C2'], 45])
+
+        elif src == 3:
+            if des == 0:
+                if ele_picked == 'B2':
+                    result.extend([['A', 'C1', 'D1'], 16])
+                elif ele_picked == 'C2':
+                    result.extend([['A', 'D1'], 31])
+                elif ele_picked == 'D2':
+                    result.extend([['A'], 46])
+            elif des == 1:
+                if ele_picked == 'C2':
+                    result.extend([['A', 'B2', 'D1'], 31])
+                elif ele_picked == 'D2':
+                    result.extend([['A', 'B2'], 46])
+            elif des == 2:
+                if ele_picked == 'D2':
+                    result.extend([['A', 'B2', 'C2'], 46])
+        return result
+
+    def _step_one(self, src, des, exclude='None'):
         '''
         got the ele in first step
         '''
         # select available ele_cars. return ele_id list
         ava_eles = self._select_avai_ele(src)
+        if exclude != 'None':
+            ava_eles.remove(exclude)
         # divide the eles into up, down, static set
         up_set, down_set, static_set = self._disc_status(ava_eles)
 
@@ -245,7 +432,8 @@ class Schedule(QObject):
                 else:
                     print('up_set and static set are both empty, restarting...')
                     # time.sleep(1)
-                    self.commands(src, des)
+                    # return self.commands(src, des)
+                    return self._step_one(src, des)
             else:
                 # print('the up_set is {}'.format(up_set))
                 Dcc, Dcd = self._cal_distance(up_set, src)
@@ -265,8 +453,9 @@ class Schedule(QObject):
                     return ele_picked
                 else:
                     print('down_set and static set are both empty, restarting...')
-                    # time.sleep(1)
-                    self.commands(src, des)
+                    time.sleep(0.5)
+                    # return self.commands(src, des)
+                    return self._step_one(src, des)
             else:
                 # print('the down_set is {}'.format(down_set))
                 Dcc, Dcd = self._cal_distance(up_set, src)
@@ -277,6 +466,7 @@ class Schedule(QObject):
         # get the min(Dcc_Dcd.values>0), or choose from (Dcc_Dcd.values>0) randomly
 
         # # if Dcc_Dcd is empty, then check static set
+        print('Dcc_Dcd is {}'.format(Dcc_Dcd))
         if len(Dcc_Dcd) == 0:
 
             if len(static_set) != 0:
@@ -286,7 +476,8 @@ class Schedule(QObject):
             else:
                 print('Dcc_Dcd and static set are both empty, restarting...')
                 time.sleep(1)
-                self.commands(src, des)
+                # return self.commands(src, des)
+                return self._step_one(src, des)
         else:
             above_0 = [value for value in Dcc_Dcd.values() if value > 0]
             below_0 = [i for i in Dcc_Dcd.keys() if Dcc_Dcd[i] < 0]
@@ -299,15 +490,17 @@ class Schedule(QObject):
             if len(above_0) != 0:
                 ele_picked = random.choice([i for i in Dcc_Dcd.keys() if Dcc_Dcd[i] == min(above_0)])
             else:
-                ele_picked = random.choice([i for i in Dcc_Dcd.keys() if Dcc_Dcd[i] < 0])
+                ele_picked = random.choice([i for i in Dcc_Dcd.keys() if Dcc_Dcd[i] <= 0])
+            print('ele picked is in step_one final part is {}'.format(ele_picked))
             if not self._is_full(ele_picked, src):
                 return ele_picked
             else:
                 time.sleep(1)
                 print('no proper result, restarting')
-                self.commands(src, des)
+                # return self.commands(src, des)
+                return self._step_one(src, des)
 
-    def _whether_change_coms(self, ele_picked, src, des):
+    def _whether_change_coms(self, ele_picked, src, des, exclude='None'):
         '''
         determine wheather changing the ele or not. return changed ele_id if needed, else return original input, list.
         '''
@@ -316,83 +509,140 @@ class Schedule(QObject):
         ori_src = src
         result = [src]
         src, des = self.map_index(src), self.map_index(des)
-
-        if src == 0:
-            if des == 1:
-                if ele_picked == 'B1':
-                    result.extend(self._get_chg('B1', ori_src, ori_des, ['A', 'C1', 'D1'], 15, direction=ele_direction))
-            elif des == 2:
-                if ele_picked == 'C1':
-                    result.extend(self._get_chg('C1', ori_src, ori_des, ['A', 'B2', 'D1'], 30, direction=ele_direction))
-                elif ele_picked == 'B1':
-                    result.extend(self._get_chg('B1', ori_src, ori_des, ['A', 'D1'], 15, direction=ele_direction))
-            elif des == 3:
-                if ele_picked == 'B1':
-                    result.extend(self._get_chg('B1', ori_src, ori_des, ['A'], 15, direction=ele_direction))
-                elif ele_picked == 'C1':
-                    result.extend(self._get_chg('C1', ori_src, ori_des, ['A', 'B2'], 30, direction=ele_direction))
-                elif ele_picked == 'D1':
-                    result.extend(self._get_chg('D1', ori_src, ori_des, ['A', 'B2', 'C2'], 45, direction=ele_direction))
-
-        elif src == 1:
-            if des == 0:
-                if ele_picked == 'B2':
-                    result.extend(self._get_chg('B2', ori_src, ori_des, ['A', 'C1', 'D1'], 16, direction=ele_direction))
-            elif des == 2:
-                if ele_picked == 'C1':
-                    result.extend(self._get_chg('C1', ori_src, ori_des, ['A', 'B2', 'D1'], 30, direction=ele_direction))
-            elif des == 3:
-                if ele_picked == 'C1':
-                    result.extend(self._get_chg('C1', ori_src, ori_des, ['A'], 30, direction=ele_direction))
-                elif ele_picked == 'D1':
-                    result.extend(self._get_chg('D1', ori_src, ori_des, ['A', 'B2', 'C2'], 45, direction=ele_direction))
-
-        elif src == 2:
-            if des == 0:
-                if ele_picked == 'B2':
-                    result.extend(self._get_chg('B2', ori_src, ori_des, ['A', 'C1', 'D1'], 16, direction=ele_direction))
-                elif ele_picked == 'C2':
-                    result.extend(self._get_chg('C2', ori_src, ori_des, ['A', 'D1'], 31, direction=ele_direction))
-            elif des == 1:
-                if ele_picked == 'C2':
-                    result.extend(self._get_chg('C2', ori_src, ori_des, ['A', 'B2', 'D1'], 31, direction=ele_direction))
-            elif des == 3:
-                if ele_picked == 'D1':
-                    result.extend(self._get_chg('D1', ori_src, ori_des, ['A', 'B2', 'C2'], 45, direction=ele_direction))
-
-        elif src == 3:
-            if des == 0:
-                if ele_picked == 'B2':
-                    result.extend(self._get_chg('B2', ori_src, ori_des, ['A', 'C1', 'D1'], 16, direction=ele_direction))
-                elif ele_picked == 'C2':
-                    result.extend(self._get_chg('C2', ori_src, ori_des, ['A', 'D1'], 31, direction=ele_direction))
-                elif ele_picked == 'D2':
-                    result.extend(self._get_chg('D2', ori_src, ori_des, ['A'], 46, direction=ele_direction))
-            elif des == 1:
-                if ele_picked == 'C2':
-                    result.extend(self._get_chg('C2', ori_src, ori_des, ['A', 'B2', 'D1'], 31, direction=ele_direction))
-                elif ele_picked == 'D2':
-                    result.extend(self._get_chg('D2', ori_src, ori_des, ['A', 'B2'], 46, direction=ele_direction))
-            elif des == 2:
-                if ele_picked == 'D2':
-                    result.extend(self._get_chg('D2', ori_src, ori_des, ['A', 'B2', 'C2'], 46, direction=ele_direction))
+        candidate_res = self.get_candidate(src, des, ele_picked)
+        if len(candidate_res) != 0:
+            candidate = candidate_res[0]
+            exg_flr = candidate_res[1]
+            result.extend(self._get_chg(ele_picked, ori_src, ori_des, candidate, exg_flr, direction=ele_direction,
+                                        exclude=exclude))
         return result
+
+    def execute_result(self, route, route_id, amount=1):
+        '''
+        modify the des_exg_dict in the eles involved in the result, rather than do it in the MainWindow
+        :param route, route_id, amount:
+        :return: no return, just modify the ele
+        '''
+        # print('updating ele status')
+        print('the route obtained is {}, it is being executed'.format(route))
+        if len(route) == 3:
+            # route is like: [src, ele, des]
+            # this condition contains the insert situation
+
+            ele = [ele for ele in self.eles if ele.ele_name == route[1]][0]
+            self.assign_des(ele, des1=route[0], des2=route[2], exg_info=['N', 'N'], amount=amount, route_id=route_id,
+                            route_finished=['S', 'E'])
+            print('the ele_list of {} is updated to \n{}\nfirst stat is {}'.format(ele.ele_name, ele.des_exg_dict,
+                                                                                   ele.is_first))
+        elif len(route) == 6:
+            # # to be rewrite to handle the new situation
+            ele1 = [ele for ele in self.eles if ele.ele_name == route[2]][0]
+            if isinstance(route[4], list):
+                # ## ALERT!!!!!!!!!!!!!!!
+                if len(route[4]) != 0:
+                    # if in searching for exg ele
+                    self.assign_des(ele1, des1=route[1], des2=route[3], exg_info=['N', 'N'], amount=amount,
+                                    route_id=route_id, route_finished=['S', 'E'])
+                    # print('the des_exg_dict of {} is updated to \n{},\nthe is_first_stat is {}'.format(ele1.ele_name,
+                    #                                                                                    ele1.des_exg_dict,
+                    #                                                                                    ele1.is_first))
+
+            else:
+                # route is like: [notice, src, cur_ele, temp_flr, chg_ele, des]
+                # if the route is already in the ele1's des list, then just update the info
+
+                # #####################################################
+                ele1_route_ids = [i[4] for direc in ['up', 'down'] for i in ele1.des_exg_dict[direc]]
+                if route_id in ele1_route_ids:
+                    self.update_des(ele1, route_id, route[-2])
+                else:
+                    self.assign_des(ele1, des1=route[1], des2=route[3], exg_info=['N', route[4]], amount=amount,
+                                    route_id=route_id, route_finished=['S', 'N'])
+                ele2 = [ele for ele in self.eles if ele.ele_name == route[-2]][0]
+                self.assign_des(ele2, des1=route[3], des2=route[5], exg_info=[route[2], 'N'], amount=amount,
+                                route_id=route_id, route_finished=['N', 'E'])
+                # print('the amount of people in {} before moving is {}'.format(ele1.ele_name, ele1.current_amount))
+                # print('the amount of people in {} before moving is {}'.format(ele2.ele_name, ele2.current_amount))
+            print('the des_exg_dict of {} is updated to \n{},\nthe is_first_stat is {}'.format(ele1.ele_name,
+                                                                                               ele1.des_exg_dict,
+                                                                                               ele1.is_first))
+            try:
+                print('the des_exg_dict of {} is updated to \n{},\nthe is_first_stat is {}'.format(ele2.ele_name,
+                                                                                                   ele2.des_exg_dict,
+                                                                                                   ele2.is_first))
+            except:
+                pass
+
+    def assign_des(self, ele, des1, des2, exg_info, route_id, route_finished, amount=1):
+        '''
+        exg_info contains the exg_info of des1 and des2 in the form of [exg1, exg2]
+        '''
+        ele_cur_flr = ele.getLocation()
+        if len(ele.des_exg_dict['up']) == 0 & len(ele.des_exg_dict['down']) == 0:
+            # if first time, then we should confirm which set should be executed first
+            if ele_cur_flr >= des1:  # the equal situation is included in this
+                ele.is_first = 'down'
+            elif ele_cur_flr < des1:
+                ele.is_first = 'up'
+        if ele_cur_flr >= des1:
+            ele.des_exg_dict['down'].append([des1, exg_info[0], 'N', amount, route_id, route_finished[0]])
+        elif ele_cur_flr < des1:
+            ele.des_exg_dict['up'].append([des1, exg_info[0], 'N', amount, route_id, route_finished[0]])
+        if des1 >= des2:
+            ele.des_exg_dict['down'].append([des2, exg_info[1], 'Y', amount, route_id, route_finished[1]])
+        elif des1 < des2:
+            ele.des_exg_dict['up'].append([des2, exg_info[1], 'Y', amount, route_id, route_finished[1]])
+        # set the des1_des2_diff value
+        if (des1 - ele_cur_flr) * (des2 - des1) < 0:
+            ele.des1_des2_diff = des1
+        # print('the des_exg_dict of {} updated before is \n{}'.format(ele.ele_name, ele.des_exg_dict))
+        ele.update_des_exg_dict()
+
+    def update_des(self, ele, route_id, exg_ele):
+        # update the exg and is_finished status to the right one
+        print('the route_id already exists, updating it')
+        for direc in ['up', 'down']:
+            for index, des_set in enumerate(ele.des_exg_dict[direc]):
+                if (route_id in des_set) & ('E' in des_set):
+                    ele.des_exg_dict[direc][index][1] = exg_ele
+                    ele.des_exg_dict[direc][index][-1] = 'N'
 
     # ############ Two main function ##############
 
-    def commands(self, src, des):
-        ele_picked = self._step_one(src, des)
-        # =================debug code=============
+    def commands(self, src, des, skip=0, ele_last=None, exclude_1='None', exclude_2='None'):
+        if skip == 1:
+            ele_picked = ele_last
+        else:
+            ele_picked = self._step_one(src, des, exclude=exclude_1)
         print('ele_picked after step one is  {}, and des is {}'.format(ele_picked, des))
-        change_result = self._whether_change_coms(ele_picked, src, des)
+        change_result = self._whether_change_coms(ele_picked, src, des, exclude=exclude_2)
         if len(change_result) == 5:
             # output the notice if change needed. string
             change_notice = self._notice(chg_ele=change_result[3], temp_flr=change_result[2], des=des)
             # print(change_notice)
             change_result.insert(0, change_notice)
-            return change_result
         else:
-            return [src, ele_picked, des]
+            change_result = [src, ele_picked, des]
+        validity = self.check_validity(change_result)
+        if validity == 0:
+            print('the validity is 0')
+            return change_result
+        if validity == 5:
+            print('the validity is 5')
+            mapped_src, mapped_des = self.map_index(src), self.map_index(des)
+            candidate_ele = self.get_candidate(mapped_src, mapped_des, ele_picked)
+            change_result[-2] = candidate_ele[0]
+            return change_result
+        elif validity == 1:
+            # the first ele is dropped, so change both two eles
+            print('the validity is 1, back to get result')
+            time.sleep(0.5)
+            return self.commands(src, des, exclude_1=ele_picked)
+        elif validity == 2:
+            # the first ele is kept, just change the second ele
+            print('the validity is 2, back to get result')
+            time.sleep(0.5)
+            return self.commands(src, des, skip=1, ele_last=ele_picked, exclude_2=change_result[-2])
 
     # def run_schedule(self, src, des):
     #     route = self.commands(src, des)
@@ -400,11 +650,14 @@ class Schedule(QObject):
 
     def run_commands(self):
         # self.isRunning = True
+        # time.sleep(5)
         print('seeking result..........from {} to {}'.format(self.src, self.des))
         schedule_result = self.commands(self.src, self.des)
-        # print('the result calculated is \n{}'.format(schedule_result))
+        print('the result calculated is {}'.format(schedule_result))
         # ## the notice is like: [notice, src, cur_ele, temp_flr, chg_ele, des] or [src, ele, des]
         self.result_sig.emit(schedule_result)
+        print('the amount of people is {}'.format(self.amount))
+        self.execute_result(schedule_result, self.route_id, self.amount)
         # print('the result_sig is emitted out.................')
         # if the exg_ele is not confirmed, then go back to search for a ele if possible
         # print('length of schedule result is {} and type of schedule_result[3] is {}'.format(len(schedule_result), type(schedule_result[3])))
@@ -412,7 +665,7 @@ class Schedule(QObject):
             if isinstance(schedule_result[4], list):
                 # print('len of schedule_result[3] is {}'.format(len(schedule_result[4])))
                 if len(schedule_result[4]) != 0:
-                    # print('in the progress of loop searching')
+                    print('in the progress of loop searching')
                     ele_direction = 'up' if (schedule_result[-1] - schedule_result[1]) > 0 else 'down'
                     change_result = self._get_chg(schedule_result[2], schedule_result[1], schedule_result[-1],
                                                   schedule_result[4], schedule_result[3], direction=ele_direction,
@@ -421,8 +674,10 @@ class Schedule(QObject):
                     change_notice = self._notice(chg_ele=change_result[3], temp_flr=change_result[2],
                                                  des=change_result[-1])
                     change_result.insert(0, change_notice)
-                    self.result_sig.emit(change_result)
-        # print('the schedule is done, finished_sig is to be sent')
+                    schedule_result = change_result
+                    self.result_sig.emit(schedule_result)
+                    self.execute_result(schedule_result, self.route_id, self.amount)
+        print('the schedule is done, finished_sig is to be sent')
         self.isRunning = False
         self.finished_sig.emit()
 
